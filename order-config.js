@@ -29,6 +29,7 @@
 //               rankname (a rank list plus the name, e.g. "SFC John A. Smith")
 //               span (from month/year to month/year or "Present")
 //               examples: [...]    on a textarea, a "Need ideas?" button that fills one in
+//               link: { href, label }  on a note, a link after the text
 //               showIf: { q, not } hides a question when that answer IS picked
 //               proof: true        lists the answer under "Check the spelling" on
 //                                  the review step (anything we engrave or print)
@@ -276,7 +277,8 @@ window.ORDER = {
           options: ["Shirts & apparel", "Embroidery", "Signs", "Website & social media", "Plaques & engraving", "Print"] },
         { id: "design_likes", label: "Designs or styles you like", type: "textarea",
           placeholder: "Describe them, and upload examples in the photos step" },
-        { id: "design_proof_note", type: "note", text: "We'll send you a proof to look over before anything is made, and make changes until you love it." },
+        { id: "design_partner_note", type: "note", text: "Interested in having apparel at your event? Our merch partners get designs, shirts and more all year, with 10% off.",
+          link: { href: "design.html#partners", label: "See our Merch Partner program →" } },
       ],
     },
     {
