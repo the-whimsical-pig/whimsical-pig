@@ -1326,10 +1326,16 @@ const PAGES = ["all", "home", "work", "shop", "order", "design", "visit", "story
 const PHOTO_KEY = /^(?:[\w-]{1,80}|images\/[\w-]{1,80}\.(?:webp|png|jpg))$/;
 const MAX_PHOTO_BYTES = 1_900_000, MAX_SMALL_BYTES = 700_000;
 
+// Google reviews shown on the home page until the shop saves its own list (Admin → Banners)
+const STARTING_REVIEWS = [
+  { name: "Wyatt W.", text: "They made all the shirts for the Lewis County Ren Faire and North Country Scare. Also made the logos and just overall do an amazing job. I wouldn't go anywhere else. If I could give 100 stars I would." },
+  { name: "Summer", text: "5 stars for quality, but honestly if I could give 10 stars for customer service, I would. I have gotten (in total) about 8 pieces from them and every time was just over the moon with my interactions with them and the quality product I received. Can't say enough good things about this place and I'd absolutely recommend them to anyone and any company looking for going away gifts." },
+];
+
 async function siteData(env) {
   const row = await kvGet(env, "site");
   const v = (row && row.value) || {};
-  return { banners: v.banners || [], themes: v.themes || [], reviews: v.reviews || [],
+  return { banners: v.banners || [], themes: v.themes || [], reviews: v.reviews || STARTING_REVIEWS,
            photos: { hidden: [], captions: {}, replace: {}, groups: {}, ...(v.photos || {}) } };
 }
 
