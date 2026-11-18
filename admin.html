@@ -207,6 +207,10 @@
   #social-canvas { max-width: 100%; max-height: 66vh; width: auto; height: auto; border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
   .sm-preview .btn { justify-self: start; }
   @media (max-width: 860px) { .sm-grid { grid-template-columns: 1fr; } }
+  /* parts of a tab, one at a time */
+  .pills { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin-bottom: 22px; border: 1px solid var(--rule); border-radius: 999px; background: var(--bg-2); }
+  .pills button { padding: 9px 18px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 0.78rem var(--sans); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+  .pills button[aria-selected="true"] { background: var(--pink); color: #000; }
   /* holiday looks */
   /* reviews, visits, cleanup */
   .review-card textarea, .review-card input { width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; }
@@ -284,7 +288,7 @@
     <div class="tabs" role="tablist">
       <button role="tab" aria-selected="true" data-tab="orders">Shop Orders <span class="count" id="n-orders"></span></button>
       <button role="tab" aria-selected="false" data-tab="items">Shop Items <span class="warn" id="n-low"></span></button>
-      <button role="tab" aria-selected="false" data-tab="banners">Banners</button>
+      <button role="tab" aria-selected="false" data-tab="banners">Banners &amp; Reviews</button>
       <button role="tab" aria-selected="false" data-tab="photos">Site Photos</button>
       <button role="tab" aria-selected="false" data-tab="social">Facebook Posts</button>
       <button role="tab" aria-selected="false" data-tab="requests">Order Backup <span class="warn" id="n-requests"></span></button>
@@ -384,9 +388,16 @@
 
     <!-- Banners on the site -->
     <section id="tab-banners" hidden>
+      <!-- Three parts of this tab, one at a time -->
+      <div class="pills" role="tablist" aria-label="Show">
+        <button type="button" role="tab" data-pane="banners" aria-selected="true">Banners</button>
+        <button type="button" role="tab" data-pane="reviews" aria-selected="false">Reviews</button>
+        <button type="button" role="tab" data-pane="logos" aria-selected="false">Holiday Logos</button>
+      </div>
+      <div class="pane" data-pane="banners">
       <div class="toolbar">
         <div>
-          <h2>Banners &amp; Holidays</h2>
+          <h2>Banners</h2>
           <p class="hint">Notices on the website: sales, holiday deadlines, closures, events. Pick a ready-made holiday banner from the list, check the wording, then Save. Changes show on the site within a minute.</p>
         </div>
         <div class="tools">
@@ -422,25 +433,39 @@
       <p class="hint" id="banners-msg" role="status"></p>
       <div class="list" id="banners"></div>
       <input type="file" id="banner-photo-pick" accept="image/*" hidden>
+      </div>
 
       <!-- Reviews shown on the home page -->
-      <div class="sec-head" id="reviews-admin"><h3 class="sub-h">Reviews on the home page</h3>
-        <button class="btn ghost sm" id="review-add" type="button">+ Add a Review</button>
-        <button class="btn sm" id="reviews-save" type="button">Save Reviews</button></div>
+      <div class="pane" data-pane="reviews" hidden>
+      <div class="toolbar" id="reviews-admin">
+        <div><h2>Reviews</h2>
+          <p class="hint">The reviews on the home page, under “What Our Customers Say”.</p></div>
+        <div class="tools">
+          <button class="btn ghost sm" id="review-add" type="button">+ Add a Review</button>
+          <button class="btn sm" id="reviews-save" type="button">Save Reviews</button>
+        </div>
+      </div>
       <p class="hint">Copy a review from our Google listing (search The Whimsical Pig on Google, open Reviews) and paste it here with the reviewer's name, like “Sarah M.”. The home page shows up to 6, in this order. With none, the section stays hidden.
         <a href="https://www.google.com/maps?cid=3617294177447346575" target="_blank" rel="noopener">Open our Google reviews →</a></p>
       <p class="hint" id="reviews-msg" role="status"></p>
       <div class="list" id="reviews-list"></div>
+      </div>
 
       <!-- Holiday versions of the logos and flying pig -->
-      <div class="sec-head" id="holiday-looks"><h3 class="sub-h">Holiday logos</h3>
-        <select id="theme-new" aria-label="Add a holiday look"></select>
-        <button class="btn sm" id="themes-save" type="button">Save Holiday Logos</button></div>
-      <p class="hint">Holiday versions of our logos and flying pig. Give one its dates once and it switches on by itself every year, then back to normal.
-        Use PNG pictures with a see-through background. Only one shows at a time; if two have the same dates, the higher one wins.</p>
+      <div class="pane" data-pane="logos" hidden>
+      <div class="toolbar" id="holiday-looks">
+        <div><h2>Holiday Logos</h2>
+          <p class="hint">Holiday versions of our logos and flying pig. Give one its dates once and it switches on by itself every year, then back to normal.</p></div>
+        <div class="tools">
+          <select id="theme-new" aria-label="Add a holiday look"></select>
+          <button class="btn sm" id="themes-save" type="button">Save Holiday Logos</button>
+        </div>
+      </div>
+      <p class="hint">Use PNG pictures with a see-through background. Only one shows at a time; if two have the same dates, the higher one wins.</p>
       <p class="hint" id="themes-msg" role="status"></p>
       <div class="list" id="themes"></div>
       <input type="file" id="theme-pick" accept="image/png,image/webp,image/jpeg" hidden>
+      </div>
     </section>
 
     <!-- Photos on the site -->
@@ -1452,6 +1477,12 @@
       $("banners-msg").textContent = "Saved. The website shows the change within a minute.";
     } catch (err) { $("banners-msg").textContent = err.message; }
   };
+
+  // Banners tab: Banners · Reviews · Holiday Logos, one at a time
+  document.querySelectorAll("#tab-banners .pills button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tab-banners .pills button").forEach(o => o.setAttribute("aria-selected", o === b));
+    document.querySelectorAll("#tab-banners .pane").forEach(p => { p.hidden = p.dataset.pane !== b.dataset.pane; });
+  });
 
   // ---------- reviews on the home page ----------
   let reviews = [];
