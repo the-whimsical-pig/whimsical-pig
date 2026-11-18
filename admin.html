@@ -1271,9 +1271,12 @@
   const nextHoliday = key => { const t = new Date(); t.setHours(0, 0, 0, 0); const d = HOLIDAYS[key](t.getFullYear()); return d < t ? HOLIDAYS[key](t.getFullYear() + 1) : d; };
   const dayName = d => d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const nextOpen = d => { let n = addDays(d, 1); while (n.getDay() === 0 || n.getDay() === 6) n = addDays(n, 1); return n.toLocaleDateString("en-US", { weekday: "long" }); };
-  const closedFor = (key, name, extra) => () => { const d = nextHoliday(key);
-    return { kind: "bar", style: "alert", text: `We're closed ${dayName(d)} for ${name}. Back ${nextOpen(d)} at 9am!${extra ? " " + extra : ""}`,
-             pages: ["all"], start: ymd(addDays(d, -7)), end: ymd(d) }; };
+  // days: how many days in a row we're closed (Thanksgiving: Thursday and Friday)
+  const closedFor = (key, name, extra, days = 1) => () => { const d = nextHoliday(key), last = addDays(d, days - 1);
+    const when = days === 1 ? dayName(d)
+      : `${d.toLocaleDateString("en-US", { weekday: "long" })} and ${last.toLocaleDateString("en-US", { weekday: "long" })}, ${d.toLocaleDateString("en-US", { month: "long" })} ${d.getDate()}–${last.getDate()}`;
+    return { kind: "bar", style: "alert", text: `We're closed ${when} for ${name}. Back ${nextOpen(last)} at 9am!${extra ? " " + extra : ""}`,
+             pages: ["all"], start: ymd(addDays(d, -7)), end: ymd(last) }; };
   const giftFor = (key, text, daysBefore = 30) => () => { const d = nextHoliday(key);
     return { kind: "bar", style: "pink", text: text.replace("{date}", dayName(d)), button: "Start an Order", link: "order.html",
              pages: ["all"], start: ymd(addDays(d, -daysBefore)), end: ymd(d) }; };
@@ -1284,7 +1287,7 @@
     h_memorial: closedFor("memorial", "Memorial Day", "We remember those who gave all."),
     h_july4: closedFor("july4", "Independence Day", "Happy Fourth of July!"),
     h_labor: closedFor("labor", "Labor Day"),
-    h_thanksgiving: closedFor("thanksgiving", "Thanksgiving", "Happy Thanksgiving from our family to yours!"),
+    h_thanksgiving: closedFor("thanksgiving", "Thanksgiving", "Happy Thanksgiving from our family to yours!", 2),
     h_christmas: closedFor("christmas", "Christmas", "Merry Christmas!"),
     g_valentines: giftFor("valentines", "Valentine's Day is {date}. Frame a photo or keepsake they'll love. Order early so it's ready in time!"),
     g_mothers: giftFor("mothers", "Mother's Day is {date}. A framed photo or an embroidered gift makes it personal. Order early!"),
@@ -1367,11 +1370,21 @@
     $("banners-msg").textContent = "Unsaved changes. Press Save Banners.";
   };
   let photoForBanner = null;
-  $("banners").onclick = e => {
+  $("banners").onclick = async e => {
     const a = e.target.dataset.a;
     if (!a) return;
     const i = +e.target.closest("[data-i]").dataset.i;
-    if (a === "del") { if (!confirm("Delete this banner?")) return; banners.splice(i, 1); }
+    // Delete takes it off the website right away (other unsaved changes stay as they are)
+    if (a === "del") {
+      if (!confirm("Delete this banner? It comes off the website right away.")) return;
+      const gone = banners.splice(i, 1)[0];
+      drawBanners();
+      if (gone.id && site.banners.some(b => b.id === gone.id)) {
+        try { await saveSite({ banners: site.banners.filter(b => b.id !== gone.id) }); $("banners-msg").textContent = "Deleted. It's off the website within a minute."; }
+        catch (err) { banners.splice(i, 0, gone); drawBanners(); $("banners-msg").textContent = "Couldn't delete it: " + err.message; }
+      } else $("banners-msg").textContent = "Deleted.";
+      return;
+    }
     if (a === "up") banners.splice(i - 1, 0, banners.splice(i, 1)[0]);
     if (a === "nophoto") banners[i].photo = null;
     if (a === "photo") { photoForBanner = i; $("banner-photo-pick").click(); return; }
@@ -1386,6 +1399,12 @@
     catch (err) { $("banners-msg").textContent = err.message; }
   };
   $("banners-save").onclick = async () => {
+    const blank = banners.findIndex(b => !(b.text || "").trim() && !(b.title || "").trim());
+    if (blank >= 0) {
+      $("banners-msg").textContent = `Banner ${blank + 1} has no words yet. Type some, or press Delete on it, then Save.`;
+      const card = $("banners").querySelector(`[data-i="${blank}"]`); if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     $("banners-msg").textContent = "Saving…";
     try {
       await saveSite({ banners });
