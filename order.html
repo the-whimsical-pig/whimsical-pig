@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Start an Order — The Whimsical Pig</title>
-<meta name="description" content="Start a custom order with The Whimsical Pig: shadow boxes, flag cases, guidons, embroidery, framing and awards.">
+<title>Start a Custom Order — Shadow Boxes, Guidons, Framing | The Whimsical Pig</title>
+<meta name="description" content="Start a custom order online: military shadow boxes, flag cases, guidons, snowshoes, plaques and name plates, custom framing, embroidery and logo design. Send photos from home.">
 <meta name="theme-color" content="#1a1816">
 <link rel="icon" href="images/favicon.png">
 <link rel="preload" href="fonts/lato-400.woff2" as="font" type="font/woff2" crossorigin>
@@ -1012,7 +1012,11 @@
 
   // ---------- Navigation ----------
   const runner = document.getElementById("runner");
+  // "Started an order" counts once a visit, when they get past picking a type
+  let countedStart = false;
+  try { countedStart = !!sessionStorage.getItem("wp-started"); } catch (e) {}
   function go(n) {
+    if (n >= 2 && !countedStart) { countedStart = true; countVisit("/order#started"); try { sessionStorage.setItem("wp-started", "1"); } catch (e) {} }
     const t = currentType();
     // skip the "style" step for types with no examples
     if (n === 1 && t && !t.examples.length) {
@@ -1162,6 +1166,7 @@
     }
   }
   function showDone(ref, viaEmail) {
+    countVisit("/order#sent");
     clearDraft();
     orderRef = "";
     const box = document.getElementById("done");

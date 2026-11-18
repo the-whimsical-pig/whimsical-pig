@@ -1,0 +1,34 @@
+# Pages from the old thewhimsicalpig.com website -> the matching new page, so
+# Google results, old Facebook posts and bookmarks still land somewhere useful.
+# (Cloudflare reads this file; it isn't served. 301 = moved for good.)
+
+/location.html                              /visit                      301
+/contact-us.html                            /visit                      301
+/military-framing.html                      /fort-drum                  301
+/flag---shadow-boxes.html                   /work?group=Military        301
+/battalion-spreads.html                     /work?group=Military        301
+/framed-military-artwork.html               /work?group=Military        301
+/10th-mountain-snowshoes.html               /snowshoes                  301
+/regulation-guidons.html                    /guidons                    301
+/non-regulation-guidons.html                /guidons                    301
+/non-military-framing.html                  /work?group=Art%20Framing   301
+/embroidery.html                            /work?group=Embroidery      301
+/custom-apparel.html                        /work?group=Printing        301
+/vinyl-applied-custom-apparel.html          /work?group=Printing        301
+/custom-printing.html                       /work?group=Printing        301
+/graphic-design.html                        /design                     301
+/custom-designed-prints.html                /design                     301
+/sublimated-plates-on-wooden-plaques.html   /plaques                    301
+/sublimated-images-on-slate.html            /plaques                    301
+/racing-plaques,-awards,-etc.html           /plaques                    301
+/racing-plaques%2c-awards%2c-etc.html       /plaques                    301
+/racing-plaques%2C-awards%2C-etc.html       /plaques                    301
+/customized-gifts.html                      /order                      301
+/masonic-items.html                         /order                      301
+/firemen,-emt,---leo-items.html             /order                      301
+/firemen%2c-emt%2c---leo-items.html         /order                      301
+/firemen%2C-emt%2C---leo-items.html         /order                      301
+/evident-truths-products.html               /shop                       301
+/purple-hearts-reunited-inc.html            /story                      301
+/path-tracing.html                          /work                       301
+/test-1.html                                /                           301

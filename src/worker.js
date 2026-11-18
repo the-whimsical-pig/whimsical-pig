@@ -99,6 +99,12 @@ const SCHEMA = [
      expires_at INTEGER NOT NULL DEFAULT 0
    )`,
   `CREATE TABLE IF NOT EXISTS login_fails (ip TEXT NOT NULL, at INTEGER NOT NULL)`,
+  // Website visits: a count per day, page and where the visitor came from. No cookies,
+  // no addresses, nothing about the person.
+  `CREATE TABLE IF NOT EXISTS page_views (
+     day TEXT NOT NULL, path TEXT NOT NULL, source TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0,
+     PRIMARY KEY (day, path, source)
+   )`,
   // The rest of a customer's file after its first part (request_files.data)
   `CREATE TABLE IF NOT EXISTS request_file_parts (
      file_id INTEGER NOT NULL,
@@ -172,6 +178,7 @@ async function route(request, env, url, path, ctx) {
   if (path === "/api/quote" && m === "POST") return quote(request, env);
   if (path === "/api/pay" && m === "POST") return pay(request, env, ctx);
   if (path === "/api/site" && m === "GET") return publicSite(env);
+  if (path === "/api/hit" && m === "POST") return countVisit(request, env);
   const pm = path.match(/^\/api\/photo\/(\d+)$/);
   if (pm && m === "GET") return servePhoto(env, +pm[1], url.searchParams.get("s") === "sm");
   if (path === "/api/checkout" && m === "POST") return checkout(request, env, url);
@@ -215,6 +222,9 @@ async function route(request, env, url, path, ctx) {
     const rsv = path.match(/^\/api\/admin\/requests\/(\d+)\/shopvox$/);
     if (rsv && m === "POST") return sendRequestToShopvox(env, +rsv[1], url.origin);
     if (path === "/api/admin/shopvox-test" && m === "POST") return shopvoxTest(env);
+    if (path === "/api/admin/visits" && m === "GET") return visitStats(env);
+    if (path === "/api/admin/test-orders" && m === "DELETE") return deleteTestOrders(env);
+    if (path === "/api/admin/backup" && m === "GET") return backup(env);
     const fm = path.match(/^\/api\/admin\/request-files\/(\d+)$/);
     if (fm && m === "GET") return serveRequestFile(env, +fm[1]);
   }
@@ -1319,7 +1329,7 @@ const MAX_PHOTO_BYTES = 1_900_000, MAX_SMALL_BYTES = 700_000;
 async function siteData(env) {
   const row = await kvGet(env, "site");
   const v = (row && row.value) || {};
-  return { banners: v.banners || [], themes: v.themes || [],
+  return { banners: v.banners || [], themes: v.themes || [], reviews: v.reviews || [],
            photos: { hidden: [], captions: {}, replace: {}, groups: {}, ...(v.photos || {}) } };
 }
 
@@ -1346,6 +1356,7 @@ async function publicSite(env) {
     ...site.photos,
     replace: { ...site.photos.replace, ...(theme ? theme.photos : {}) },
     theme: theme ? theme.name : "",
+    reviews: site.reviews,
     added: results.map(r => ({ id: r.id, group: r.grp, caption: r.caption })),
   }, 200, { "Cache-Control": "public, max-age=60" });
 }
@@ -1409,6 +1420,10 @@ async function saveSite(request, env) {
       replace: Object.fromEntries(Object.entries(map(p.replace, v => parseInt(v, 10))).filter(([, v]) => v > 0)),
       groups: Object.fromEntries(Object.entries(map(p.groups, v => cleanText(v, 60))).filter(([, v]) => v)),
     };
+  }
+  if (b.reviews !== undefined) {
+    if (!Array.isArray(b.reviews) || b.reviews.length > 12) return json({ error: "Up to 12 reviews." }, 400);
+    site.reviews = b.reviews.map(r => ({ text: cleanText(r && r.text, 600), name: cleanText(r && r.name, 60) })).filter(r => r.text);
   }
   if (b.themes !== undefined) {
     if (!Array.isArray(b.themes) || b.themes.length > 20) return json({ error: "Up to 20 holiday looks." }, 400);
@@ -1802,6 +1817,80 @@ async function orderViewPage(env, id, key, origin) {
     <h2>What they asked for</h2><pre>${htmlEsc(r.summary)}</pre>`, 200, true);
 }
 
+// ---------------------------------------------------------------- website visits
+// The site sends { p: page, r: where they came from } once per page view. Only the
+// shop's own pages count; bots and the admin page don't.
+const VISIT_PAGES = new Set(["/", "/story", "/work", "/design", "/shop", "/order", "/help", "/visit",
+  "/fort-drum", "/guidons", "/snowshoes", "/plaques", "/order#started", "/order#sent"]);
+function visitSource(ref, host) {
+  let h = "";
+  try { h = new URL(ref).hostname.replace(/^www\./, ""); } catch (e) { return "direct"; }
+  if (!h || h === host.replace(/^www\./, "") || /thewhimsicalpig\.com$|workers\.dev$/.test(h)) return "";
+  if (/(^|\.)google\./.test(h)) return "Google";
+  if (/facebook\.com$|fb\.com$|fb\.me$/.test(h)) return "Facebook";
+  if (/instagram\.com$/.test(h)) return "Instagram";
+  if (/bing\.com$|duckduckgo\.com$|yahoo\.com$/.test(h)) return "Other search";
+  return h.slice(0, 60);
+}
+async function countVisit(request, env) {
+  const ua = request.headers.get("User-Agent") || "";
+  if (!ua || /bot|crawl|spider|slurp|preview|monitor|headless|lighthouse|curl|python|wget/i.test(ua)) return new Response(null, { status: 204 });
+  const b = await readJson(request);
+  let p = String(b.p || "").toLowerCase().replace(/\.html$/, "").replace(/\/index$/, "/").slice(0, 40) || "/";
+  if (!VISIT_PAGES.has(p)) return new Response(null, { status: 204 });
+  // where they came from counts once, on the page they arrived at; moving around the site counts as ""
+  const src = /#/.test(p) ? "" : visitSource(String(b.r || ""), new URL(request.url).hostname);
+  await env.DB.prepare(`INSERT INTO page_views (day, path, source, n) VALUES (?, ?, ?, 1)
+    ON CONFLICT (day, path, source) DO UPDATE SET n = n + 1`).bind(todayNY(), p, src).run();
+  if (Math.random() < 0.01) await env.DB.prepare(`DELETE FROM page_views WHERE day < date('now', '-400 days')`).run();
+  return new Response(null, { status: 204 });
+}
+async function visitStats(env) {
+  const q = (sql, ...a) => env.DB.prepare(sql).bind(...a).all().then(r => r.results);
+  const since = d => `date('now', '-${d} days')`;
+  const pages = `path NOT LIKE '%#%'`;
+  const [days, top, sources, orders] = await Promise.all([
+    q(`SELECT day, SUM(n) AS n FROM page_views WHERE ${pages} AND day >= ${since(30)} GROUP BY day ORDER BY day`),
+    q(`SELECT path, SUM(n) AS n FROM page_views WHERE ${pages} AND day >= ${since(30)} GROUP BY path ORDER BY n DESC`),
+    q(`SELECT source, SUM(n) AS n FROM page_views WHERE ${pages} AND source != '' AND day >= ${since(30)} GROUP BY source ORDER BY n DESC LIMIT 12`),
+    q(`SELECT path, SUM(n) AS n FROM page_views WHERE path LIKE '/order#%' AND day >= ${since(30)} GROUP BY path`),
+  ]);
+  const week = await q(`SELECT SUM(n) AS n FROM page_views WHERE ${pages} AND day >= ${since(7)}`);
+  return json({ days, top, sources, week: (week[0] || {}).n || 0,
+    started: (orders.find(o => o.path === "/order#started") || {}).n || 0, sent: (orders.find(o => o.path === "/order#sent") || {}).n || 0 },
+    200, { "Cache-Control": "no-store" });
+}
+
+// ---------------------------------------------------------------- cleanup & backup
+// Test orders (Send a Test Order) out of Order Backup, and their leads out of shopVOX
+async function deleteTestOrders(env) {
+  const { results } = await env.DB.prepare(`SELECT id, ref, shopvox_id FROM requests WHERE ref LIKE 'WP-TEST-%' OR type LIKE '%(TEST)%'`).all();
+  let leads = 0, leadErrors = 0;
+  for (const r of results) {
+    if (r.shopvox_id && shopvoxReady(env)) {
+      const d = await shopvoxCall(env, "DELETE", `/sales_leads/${encodeURIComponent(r.shopvox_id)}`);
+      if (d.ok || d.status === 404) leads++; else leadErrors++;
+    }
+    await deleteRequest(env, r.id);
+  }
+  return json({ ok: true, deleted: results.length, leads, leadErrors });
+}
+// Everything the site keeps (orders, custom orders, banners, settings), as one file.
+// Customers' photos aren't in it (they'd make it huge); they stay in Order Backup.
+async function backup(env) {
+  const all = sql => env.DB.prepare(sql).all().then(r => r.results);
+  const [requests, files, orders, kv] = await Promise.all([
+    all(`SELECT id, ref, type, name, email, phone, needed_by, fulfill, unit, summary, status, note, shopvox_id, created_at FROM requests ORDER BY id`),
+    all(`SELECT id, request_id, name, mime FROM request_files ORDER BY id`),
+    all(`SELECT * FROM shop_orders ORDER BY id`),
+    all(`SELECT key, value FROM kv WHERE key IN ('site', 'preorders', 'partners')`),
+  ]);
+  const body = JSON.stringify({ made: new Date().toISOString(), requests, request_files: files, shop_orders: orders,
+    settings: Object.fromEntries(kv.map(r => [r.key, JSON.parse(r.value)])) }, null, 2);
+  return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "no-store",
+    "Content-Disposition": `attachment; filename="whimsical-pig-backup-${todayNY()}.json"` } });
+}
+
 // Read-only check that the Account ID and token work
 async function shopvoxTest(env) {
   if (!shopvoxReady(env)) return json({ error: "Add SHOPVOX_ACCOUNT_ID and SHOPVOX_API_TOKEN in Cloudflare first." }, 503);
@@ -1828,14 +1917,15 @@ async function serveSharedFile(env, id, key) {
 // ---------------------------------------------------------------- search engines
 // Built for whatever address the site is on (workers.dev now, the shop's own domain later)
 
-const PUBLIC_PAGES = ["", "story.html", "work.html", "design.html", "shop.html", "order.html", "help.html", "visit.html"];
+const PUBLIC_PAGES = ["", "story.html", "work.html", "design.html", "shop.html", "order.html", "help.html", "visit.html",
+  "fort-drum.html", "guidons.html", "snowshoes.html", "plaques.html"];
 function robots(url) {
   return new Response(`User-agent: *\nDisallow: /admin\nDisallow: /admin.html\nDisallow: /api/\nDisallow: /sign.html\n\nSitemap: ${url.origin}/sitemap.xml\n`,
     { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
 }
 function sitemap(url) {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    PUBLIC_PAGES.map(p => `  <url><loc>${url.origin}/${p}</loc></url>`).join("\n") + `\n</urlset>\n`;
+    PUBLIC_PAGES.map(p => `  <url><loc>${url.origin}/${p.replace(/\.html$/, "")}</loc></url>`).join("\n") + `\n</urlset>\n`;
   return new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
 }
 

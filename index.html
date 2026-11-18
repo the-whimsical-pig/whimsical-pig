@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Whimsical Pig — Military &amp; Custom Framing, Watertown NY</title>
-<meta name="description" content="Custom military framing based out of Watertown, New York. Shadow boxes, flag cases, guidons, framing, embroidery and gifts. Shop online or start a custom order.">
-<meta property="og:title" content="The Whimsical Pig">
+<title>The Whimsical Pig — Military Framing, Shadow Boxes &amp; Guidons | Watertown NY, near Fort Drum</title>
+<meta name="description" content="Family owned since 2003 on Public Square in Watertown, NY, near Fort Drum. Military shadow boxes, flag cases, guidons, 10th Mountain snowshoes, plaques, custom framing, embroidery and gifts.">
+<meta property="og:title" content="The Whimsical Pig — Military &amp; Custom Framing, Watertown NY">
 <meta property="og:description" content="We make military framing &quot;too easy.&quot; Watertown, NY.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="images/logo-mark.webp">
@@ -17,9 +17,14 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "LocalBusiness",
+  "@type": ["LocalBusiness", "Store"],
   "name": "The Whimsical Pig",
-  "description": "Custom military framing based out of Watertown, New York.",
+  "description": "Family owned military and custom framing shop in Watertown, New York, near Fort Drum: shadow boxes, flag cases, guidons, 10th Mountain snowshoes, plaques and name plates, custom framing, embroidery and gifts.",
+  "url": "https://thewhimsicalpig.com/",
+  "logo": "https://thewhimsicalpig.com/images/logo-full.webp",
+  "image": "https://thewhimsicalpig.com/images/work/military-shadow-boxes_10.webp",
+  "foundingDate": "2003",
+  "areaServed": ["Watertown, NY", "Fort Drum, NY", "Jefferson County, NY", "North Country, NY"],
   "telephone": "+1-315-773-3758",
   "email": "WhimsicalPig@hotmail.com",
   "address": {
@@ -169,6 +174,15 @@
   .spec:hover .more { border-color: var(--brass); }
 
   .more-work { text-align: center; margin-top: 44px; }
+  .review-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
+  .review { margin: 0; padding: 26px 26px 22px; background: var(--panel); border: 1px solid var(--rule); border-radius: 18px; }
+  .review .stars { color: var(--pink); letter-spacing: 0.15em; font-size: 0.95rem; }
+  .review blockquote { margin: 10px 0 14px; font: italic 500 1.25rem/1.45 var(--serif); color: var(--cream); }
+  .review figcaption { color: var(--muted); font: 700 0.75rem var(--sans); letter-spacing: 0.16em; text-transform: uppercase; }
+  .reviews .more-work { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  .spec-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px; margin-top: 34px; }
+  .spec-links a { color: var(--pink); font: 700 0.78rem var(--sans); letter-spacing: 0.16em; text-transform: uppercase; }
+  .spec-links a::after { content: " →"; }
 
   /* ---------- Ordering ---------- */
   .how {
@@ -260,6 +274,12 @@
         <h2 data-tail>Our Specialties</h2>
       </div>
       <div class="specs" id="specs"></div>
+      <p class="spec-links">
+        <a href="fort-drum.html">Fort Drum framing &amp; gifts</a>
+        <a href="guidons.html">Custom guidons</a>
+        <a href="snowshoes.html">10th Mountain snowshoes</a>
+        <a href="plaques.html">Plaques &amp; name plates</a>
+      </p>
     </div>
   </section>
 
@@ -294,6 +314,21 @@
       </div>
       <div class="gallery" id="gallery"></div>
       <div class="more-work"><a class="btn ghost" href="work.html">See All Our Work</a></div>
+    </div>
+  </section>
+
+  <!-- Reviews (added on the admin page; hidden until there are some) -->
+  <section class="block reviews" id="reviews" hidden>
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">Kind words</span>
+        <h2 data-tail>What Our Customers Say</h2>
+      </div>
+      <div class="review-list" id="review-list"></div>
+      <div class="more-work">
+        <a class="btn ghost" href="https://www.google.com/maps?cid=3617294177447346575" target="_blank" rel="noopener">Read Our Google Reviews</a>
+        <a class="btn ghost" href="/review" target="_blank" rel="noopener">Leave a Review</a>
+      </div>
     </div>
   </section>
 
@@ -389,6 +424,22 @@
   const peek = ["military-shadow-boxes_05", "military-shadow-boxes_08", "sports-memorabilia_03", "embroidery_06",
                 "military-shadow-boxes_17", "art-framing_01", "patches_01", "military-shadow-boxes_14"];
   renderGallery(document.getElementById("gallery"), peek.map(workItem));
+
+  // ---- Reviews from the admin page ----
+  document.addEventListener("site-changes", e => {
+    const list = (e.detail && e.detail.reviews) || [];
+    if (!list.length) return;
+    const box = document.getElementById("review-list");
+    for (const r of list.slice(0, 6)) {
+      const f = document.createElement("figure");
+      f.className = "review";
+      f.innerHTML = '<div class="stars" aria-label="5 stars">★★★★★</div><blockquote></blockquote><figcaption></figcaption>';
+      f.querySelector("blockquote").textContent = "“" + r.text + "”";
+      f.querySelector("figcaption").textContent = r.name ? "— " + r.name : "— Google review";
+      box.appendChild(f);
+    }
+    document.getElementById("reviews").hidden = false;
+  });
 </script>
 </body>
 </html>

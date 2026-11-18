@@ -352,10 +352,18 @@ function buildFooter() {
       </div>
       <div class="fine">
         <span>&copy; ${new Date().getFullYear()} The Whimsical Pig · Made with a little whimsy in Watertown, New York</span>
-        <span><a href="story.html">Our Story</a> · <a href="work.html">Our Work</a> · <a href="design.html">Design &amp; Merch</a> · <a href="shop.html">Shop</a> · <a href="order.html">Start an Order</a> · <a href="help.html">Help &amp; FAQ</a> · <a href="visit.html">Visit</a></span>
+        <span><a href="story.html">Our Story</a> · <a href="work.html">Our Work</a> · <a href="design.html">Design &amp; Merch</a> · <a href="shop.html">Shop</a> · <a href="order.html">Start an Order</a> · <a href="help.html">Help &amp; FAQ</a> · <a href="visit.html">Visit</a> · <a href="fort-drum.html">Fort Drum</a> · <a href="guidons.html">Guidons</a> · <a href="snowshoes.html">Snowshoes</a> · <a href="plaques.html">Plaques</a></span>
       </div>
     </div>`;
 }
+
+// Count this page view for the admin page's Website visits (no cookies, nothing
+// about the visitor: just the page and where they came from)
+function countVisit(page) {
+  if (!location.protocol.startsWith("http") || !navigator.sendBeacon) return;
+  try { navigator.sendBeacon("/api/hit", new Blob([JSON.stringify({ p: page || location.pathname, r: page ? "" : document.referrer })], { type: "application/json" })); } catch (e) {}
+}
+document.addEventListener("DOMContentLoaded", () => { if (!("noSiteChanges" in document.body.dataset)) countVisit(); });
 
 // Build the header right away (this script is loaded just after <header id="site-header">)
 // so it appears with the page instead of popping in at the end.

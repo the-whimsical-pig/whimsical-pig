@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plaques, Engraved Metal Plates &amp; Name Plates — The Whimsical Pig, Watertown NY</title>
+<meta name="description" content="Wood plaques with engraved metal plates, name plates for desks, doors and equipment, award plaques and league awards. Made in Watertown, NY.">
+<meta property="og:title" content="Plaques, Engraved Metal Plates &amp; Name Plates — The Whimsical Pig, Watertown NY">
+<meta property="og:description" content="Wood plaques with engraved metal plates, name plates for desks, doors and equipment, award plaques and league awards. Made in Watertown, NY.">
+<meta property="og:image" content="images/work/military-shadow-boxes_18.webp">
+<meta name="theme-color" content="#141112">
+<link rel="icon" href="images/favicon.png">
+<link rel="preload" href="fonts/lato-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+</head>
+<body data-page="plaques">
+
+<header id="site-header"></header>
+<script src="settings.js"></script>
+<script src="site.js"></script>
+
+<main>
+  <section class="page-intro blush">
+    <div class="wrap">
+      <img class="flying-pig" src="images/flying-pig.webp" alt="">
+      <span class="eyebrow">Engraved in our shop</span>
+      <h1>Plaques &amp; <em>Name Plates</em></h1>
+      <div class="rule-orn" aria-hidden="true"><span></span></div>
+      <p>Wood plaques with engraved metal plates, name plates, award plaques and league awards, for units, businesses, teams and events.</p>
+      <p class="svc-ctas"><a class="btn" href="order.html?type=award">Order Plaques</a> <a class="btn ghost" href="work.html">See our work</a></p>
+    </div>
+    <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 120 60, 240 0, 360 30 S 600 60, 720 30 S 960 0, 1080 30 S 1320 60, 1440 30 V60 H0 Z" fill="#141112"/></svg>
+  </section>
+
+  <section class="block">
+    <div class="wrap svc">
+      <div class="svc-text">
+        <h2>Recognition, Made Right</h2>
+        <p>From a single retirement plaque to a set of league awards, we engrave and build it here in Watertown.</p><p>Send us the wording exactly as it should read and your logo if it goes on the piece. We&#x27;ll go over the details with you before we engrave.</p>
+        <ul class="svc-list"><li><strong>Plaques with metal plates</strong><span>An engraved gold, silver or black plate on a cherry, walnut or black wood plaque.</span></li><li><strong>Name plates</strong><span>For desks, doors, walls and equipment.</span></li><li><strong>Award plaques</strong><span>Appreciation, retirement and recognition.</span></li><li><strong>League &amp; race awards</strong><span>A matching set for your event or season.</span></li><li><strong>Military plaques</strong><span>With rank, crest, coins and an engraved plate.</span></li><li><strong>Your logo</strong><span>Add your unit, business or team logo to the piece.</span></li></ul>
+      </div>
+      <div class="gallery svc-pics" id="svc-pics"></div>
+    </div>
+  </section>
+
+  <section class="block blush">
+    <div class="wrap">
+      <div class="head"><span class="eyebrow">Easy as one, two, three</span><h2>What to Have Ready</h2></div>
+      <ol class="steps svc-steps"><li><span class="num">i.</span><h3>The exact wording</h3><p>For each plate or award, line by line.</p></li><li><span class="num">ii.</span><h3>Your logo file</h3><p>If it goes on the piece.</p></li><li><span class="num">iii.</span><h3>How many &amp; when</h3><p>The quantity and the date you need them.</p></li></ol>
+      <p class="svc-ctas center"><a class="btn" href="order.html?type=award">Order Plaques</a></p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap svc-visit">
+      <h2>Come See Us</h2>
+      <p>50 Public Square, Suite E1, Watertown, New York · Monday to Friday, 9am to 5pm · <a href="tel:315-773-3758">315-773-3758</a></p>
+      <p class="svc-ctas center"><a class="btn ghost" href="visit.html">Visit the Shop</a> <a class="btn ghost" href="help.html">Questions? See Help</a></p>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script>
+  const pics = ["military-shadow-boxes_18", "military-shadow-boxes_09", "military-shadow-boxes_07"];
+  renderGallery(document.getElementById("svc-pics"), pics.map(k => WORK.find(w => w[0] === k)).filter(Boolean));
+</script>
+</body>
+</html>

@@ -208,6 +208,23 @@
   .sm-preview .btn { justify-self: start; }
   @media (max-width: 860px) { .sm-grid { grid-template-columns: 1fr; } }
   /* holiday looks */
+  /* reviews, visits, cleanup */
+  .review-card textarea, .review-card input { width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; }
+  .review-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 8px; }
+  .review-row input { flex: 1 1 200px; width: auto; }
+  .visit-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 10px; }
+  .stat { padding: 16px 18px; background: var(--panel); border: 1px solid var(--hair); border-radius: 14px; }
+  .stat b { display: block; font: 600 2rem var(--serif); color: var(--pink); }
+  .stat span { color: var(--muted); font-size: 0.85rem; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 90px; margin: 16px 0; padding: 8px; background: var(--bg-2); border: 1px solid var(--hair); border-radius: 12px; }
+  .bars span { flex: 1; background: var(--pink); border-radius: 3px 3px 0 0; min-width: 2px; }
+  .visit-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .visit-tables table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; overflow: hidden; }
+  .visit-tables caption { text-align: left; font-weight: 700; padding: 0 0 6px; }
+  .visit-tables td { padding: 8px 12px; border-top: 1px solid var(--hair); font-size: 0.92rem; }
+  .visit-tables td + td { text-align: right; color: var(--pink); font-weight: 700; }
+  .cleanup { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 10px; }
+  .cleanup .hint { margin-top: 8px; }
   .theme.live { border-left-color: var(--pink); }
   .theme-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
   .theme-head input { flex: 1 1 200px; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: 600 1.15rem var(--sans); }
@@ -406,6 +423,15 @@
       <div class="list" id="banners"></div>
       <input type="file" id="banner-photo-pick" accept="image/*" hidden>
 
+      <!-- Reviews shown on the home page -->
+      <div class="sec-head" id="reviews-admin"><h3 class="sub-h">Reviews on the home page</h3>
+        <button class="btn ghost sm" id="review-add" type="button">+ Add a Review</button>
+        <button class="btn sm" id="reviews-save" type="button">Save Reviews</button></div>
+      <p class="hint">Copy a review from our Google listing (search The Whimsical Pig on Google, open Reviews) and paste it here with the reviewer's name, like “Sarah M.”. The home page shows up to 6, in this order. With none, the section stays hidden.
+        <a href="https://www.google.com/maps?cid=3617294177447346575" target="_blank" rel="noopener">Open our Google reviews →</a></p>
+      <p class="hint" id="reviews-msg" role="status"></p>
+      <div class="list" id="reviews-list"></div>
+
       <!-- Holiday versions of the logos and flying pig -->
       <div class="sec-head" id="holiday-looks"><h3 class="sub-h">Holiday logos</h3>
         <select id="theme-new" aria-label="Add a holiday look"></select>
@@ -545,8 +571,8 @@
     <section id="tab-setup" hidden>
       <div class="toolbar">
         <div>
-          <h2>Setup Check</h2>
-          <p class="hint">What's connected. Anything red needs a step from the README.</p>
+          <h2>Setup &amp; Visits</h2>
+          <p class="hint">How many people visit the website, what's connected, and cleanup tools.</p>
         </div>
         <div class="tools">
           <a class="btn ghost sm" href="sign.html?review=1" target="_blank" rel="noopener">Print Review Sign</a>
@@ -555,7 +581,19 @@
           <button class="btn ghost sm" id="setup-refresh" type="button">Check Again</button>
         </div>
       </div>
+      <div class="sec-head"><h3 class="sub-h">Website visits</h3><span class="hint">Last 30 days. Counted by the website itself: no cookies, nothing about who visited.</span></div>
+      <div id="visits"><p class="hint">Loading…</p></div>
+
+      <div class="sec-head"><h3 class="sub-h">What's connected</h3><span class="hint">Anything red needs a step from the README.</span></div>
       <div class="checks" id="checks"></div>
+
+      <div class="sec-head"><h3 class="sub-h">Cleanup &amp; backup</h3></div>
+      <div class="cleanup">
+        <div><button class="btn ghost sm" id="clean-tests" type="button">Delete Test Orders</button>
+          <p class="hint">Removes every “Send a Test Order” order from Order Backup, and its sales lead from shopVOX. Test sales orders and quotes made in shopVOX need deleting there.</p></div>
+        <div><a class="btn ghost sm" href="/api/admin/backup" download>Download a Backup</a>
+          <p class="hint">One file with every website order, custom order, banner and setting (not the customers' photos, which stay in Order Backup). Keep it somewhere safe, like Google Drive. Cloudflare also keeps restore points of the site's data for the last few days.</p></div>
+      </div>
     </section>
   </div>
 </main>
@@ -609,7 +647,7 @@
 
   // ---------- tabs ----------
   const loaders = { requests: () => loadRequests(), orders: () => loadOrders(), items: () => loadItems(),
-                    banners: () => loadBanners().then(loadThemes), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
+                    banners: () => loadBanners().then(loadThemes).then(() => { reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-tab]").forEach(o => {
       o.setAttribute("aria-selected", o === b);
@@ -1127,6 +1165,7 @@
 
   // ---------- setup check ----------
   async function loadSetup(countOnly) {
+    if (!countOnly) loadVisits();
     let data;
     try { data = await api("/api/admin/status"); }
     catch (err) { $("checks").innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
@@ -1244,7 +1283,7 @@
     return site;
   }
   const saveSite = body => send("/api/admin/site", "PUT", body).then(r => {
-    freshSite(); site.banners = r.banners; site.photos = r.photos; site.themes = r.themes; site.activeTheme = r.activeTheme; return r;
+    freshSite(); site.banners = r.banners; site.photos = r.photos; site.themes = r.themes; site.activeTheme = r.activeTheme; site.reviews = r.reviews; return r;
   });
 
   // ---------- banners ----------
@@ -1412,6 +1451,73 @@
       drawBanners();
       $("banners-msg").textContent = "Saved. The website shows the change within a minute.";
     } catch (err) { $("banners-msg").textContent = err.message; }
+  };
+
+  // ---------- reviews on the home page ----------
+  let reviews = [];
+  function drawReviews() {
+    $("reviews-list").innerHTML = reviews.length ? reviews.map((r, i) => `
+      <div class="card review-card" data-i="${i}">
+        <textarea data-f="text" rows="3" maxlength="600" placeholder="Paste the review here">${esc(r.text)}</textarea>
+        <div class="review-row"><input data-f="name" value="${esc(r.name)}" maxlength="60" placeholder="Name, e.g. Sarah M.">
+          <button type="button" class="link-btn" data-r="up"${i ? "" : " disabled"}>Move up</button>
+          <button type="button" class="link-btn" data-r="del">Delete</button></div>
+      </div>`).join("") : '<div class="empty">No reviews yet. Press “+ Add a Review”.</div>';
+  }
+  $("review-add").onclick = () => { reviews.push({ text: "", name: "" }); drawReviews(); $("reviews-msg").textContent = "Paste the review, then press Save Reviews."; };
+  $("reviews-list").addEventListener("input", e => {
+    const c = e.target.closest(".review-card"); if (!c || !e.target.dataset.f) return;
+    reviews[+c.dataset.i][e.target.dataset.f] = e.target.value; $("reviews-msg").textContent = "Press Save Reviews to keep your changes.";
+  });
+  $("reviews-list").addEventListener("click", e => {
+    const a = e.target.dataset.r; if (!a) return;
+    const i = +e.target.closest(".review-card").dataset.i;
+    if (a === "del") { if (!confirm("Delete this review?")) return; reviews.splice(i, 1); }
+    if (a === "up") reviews.splice(i - 1, 0, reviews.splice(i, 1)[0]);
+    drawReviews(); $("reviews-msg").textContent = "Press Save Reviews to keep your changes.";
+  });
+  $("reviews-save").onclick = async () => {
+    try {
+      const r = await saveSite({ reviews: reviews.filter(x => x.text.trim()) });
+      site.reviews = r.reviews; reviews = r.reviews.map(x => ({ ...x }));
+      drawReviews(); $("reviews-msg").textContent = reviews.length ? "Saved. The home page shows them within a minute." : "Saved. No reviews, so the section is hidden.";
+    } catch (err) { $("reviews-msg").textContent = err.message; }
+  };
+
+  // ---------- website visits ----------
+  const PAGE_LABELS = { "/": "Home", "/story": "Our Story", "/work": "Our Work", "/design": "Design & Merch", "/shop": "Shop", "/order": "Start an Order",
+    "/help": "Help", "/visit": "Visit", "/fort-drum": "Fort Drum", "/guidons": "Guidons", "/snowshoes": "Snowshoes", "/plaques": "Plaques" };
+  async function loadVisits() {
+    let v;
+    try { v = await api("/api/admin/visits"); } catch (err) { $("visits").innerHTML = `<p class="hint">${esc(err.message)}</p>`; return; }
+    const total = v.days.reduce((n, d) => n + d.n, 0);
+    if (!total) { $("visits").innerHTML = '<div class="empty">No visits counted yet. They start adding up as people visit the site.</div>'; return; }
+    const max = Math.max(...v.days.map(d => d.n), 1);
+    const byDay = new Map(v.days.map(d => [d.day, d.n]));
+    const days = [...Array(30)].map((_, i) => { const d = new Date(Date.now() - (29 - i) * 86400000); const k = d.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); return [k, byDay.get(k) || 0]; });
+    const rows = (list, label) => list.map(x => `<tr><td>${esc(label(x))}</td><td>${x.n.toLocaleString()}</td></tr>`).join("");
+    $("visits").innerHTML = `
+      <div class="visit-stats">
+        <div class="stat"><b>${total.toLocaleString()}</b><span>page views, 30 days</span></div>
+        <div class="stat"><b>${v.week.toLocaleString()}</b><span>page views, 7 days</span></div>
+        <div class="stat"><b>${v.started.toLocaleString()}</b><span>orders started</span></div>
+        <div class="stat"><b>${v.sent.toLocaleString()}</b><span>orders sent</span></div>
+      </div>
+      <div class="bars" aria-label="Page views per day">${days.map(([k, n]) => `<span style="height:${Math.max(3, n / max * 100)}%" title="${k}: ${n}"></span>`).join("")}</div>
+      <div class="visit-tables">
+        <table><caption>Most visited pages</caption>${rows(v.top.slice(0, 8), x => PAGE_LABELS[x.path] || x.path)}</table>
+        <table><caption>Where visitors came from</caption>${v.sources.length ? rows(v.sources, x => x.source === "direct" ? "Typed it in, a bookmark or an app" : x.source) : '<tr><td colspan="2">Nothing yet</td></tr>'}</table>
+      </div>`;
+  }
+  $("clean-tests").onclick = async e => {
+    if (!confirm("Delete all test orders? They come out of Order Backup, and their sales leads come out of shopVOX. Real orders aren't touched.")) return;
+    e.target.disabled = true;
+    try {
+      const r = await api("/api/admin/test-orders", { method: "DELETE" });
+      alert(`Deleted ${r.deleted} test order${r.deleted === 1 ? "" : "s"} and ${r.leads} shopVOX lead${r.leads === 1 ? "" : "s"}.` + (r.leadErrors ? ` ${r.leadErrors} lead(s) couldn't be deleted in shopVOX; delete those there.` : ""));
+      loadRequests();
+    } catch (err) { alert(err.message); }
+    e.target.disabled = false;
   };
 
   // ---------- holiday looks ----------

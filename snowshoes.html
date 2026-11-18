@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10th Mountain Division Snowshoes — The Whimsical Pig, Watertown NY</title>
+<meta name="description" content="Personalized 10th Mountain Division snowshoe plaques for PCS, retirement and farewell gifts, in four sizes. Made in Watertown, NY, near Fort Drum.">
+<meta property="og:title" content="10th Mountain Division Snowshoes — The Whimsical Pig, Watertown NY">
+<meta property="og:description" content="Personalized 10th Mountain Division snowshoe plaques for PCS, retirement and farewell gifts, in four sizes. Made in Watertown, NY, near Fort Drum.">
+<meta property="og:image" content="images/work/military-shadow-boxes_17.webp">
+<meta name="theme-color" content="#141112">
+<link rel="icon" href="images/favicon.png">
+<link rel="preload" href="fonts/lato-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+</head>
+<body data-page="snowshoes">
+
+<header id="site-header"></header>
+<script src="settings.js"></script>
+<script src="site.js"></script>
+
+<main>
+  <section class="page-intro blush">
+    <div class="wrap">
+      <img class="flying-pig" src="images/flying-pig.webp" alt="">
+      <span class="eyebrow">The 10th Mountain classic</span>
+      <h1>10th Mountain <em>Snowshoes</em></h1>
+      <div class="rule-orn" aria-hidden="true"><span></span></div>
+      <p>A North Country tradition for PCS moves, retirements and farewells: a snowshoe with the soldier&#x27;s rank, crest, coins and an engraved plate.</p>
+      <p class="svc-ctas"><a class="btn" href="order.html?type=military">Order a Snowshoe</a> <a class="btn ghost" href="work.html?group=Military">See our work</a></p>
+    </div>
+    <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 120 60, 240 0, 360 30 S 600 60, 720 30 S 960 0, 1080 30 S 1320 60, 1440 30 V60 H0 Z" fill="#141112"/></svg>
+  </section>
+
+  <section class="block">
+    <div class="wrap svc">
+      <div class="svc-text">
+        <h2>A Gift They&#x27;ll Hang Forever</h2>
+        <p>Our snowshoes are a favorite farewell gift from Fort Drum units. We add the rank, unit crest, coins and patches you choose, plus a plate with the wording you send us.</p><p>Pick a size on the order form, tell us what goes on it, and we&#x27;ll lay it out with you before we build.</p>
+        <ul class="svc-list"><li><strong>Mini</strong><span>5 × 15 inches</span></li><li><strong>Medium</strong><span>9 × 29 inches</span></li><li><strong>Large</strong><span>11 × 36 inches</span></li><li><strong>X-Large</strong><span>12 × 42 inches</span></li><li><strong>Your items</strong><span>Rank, crest, coins, patches and more, from you or from us.</span></li><li><strong>Engraved plate</strong><span>Rank and name, position, dates, a few words of thanks, and a quote.</span></li></ul>
+      </div>
+      <div class="gallery svc-pics" id="svc-pics"></div>
+    </div>
+  </section>
+
+  <section class="block blush">
+    <div class="wrap">
+      <div class="head"><span class="eyebrow">Easy as one, two, three</span><h2>What to Have Ready</h2></div>
+      <ol class="steps svc-steps"><li><span class="num">i.</span><h3>The plate wording</h3><p>Rank and name, position or callsign, dates, 2–3 sentences, and a quote.</p></li><li><span class="num">ii.</span><h3>Your items</h3><p>Ranks, badges, crests, coins or patches to include. Company-specific coins and patches come from your unit.</p></li><li><span class="num">iii.</span><h3>Your date</h3><p>When you need it. We prefer at least 2 weeks.</p></li></ol>
+      <p class="svc-ctas center"><a class="btn" href="order.html?type=military">Order a Snowshoe</a></p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap svc-visit">
+      <h2>Come See Us</h2>
+      <p>50 Public Square, Suite E1, Watertown, New York · Monday to Friday, 9am to 5pm · <a href="tel:315-773-3758">315-773-3758</a></p>
+      <p class="svc-ctas center"><a class="btn ghost" href="visit.html">Visit the Shop</a> <a class="btn ghost" href="help.html">Questions? See Help</a></p>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script>
+  const pics = ["military-shadow-boxes_17", "military-shadow-boxes_05"];
+  renderGallery(document.getElementById("svc-pics"), pics.map(k => WORK.find(w => w[0] === k)).filter(Boolean));
+</script>
+</body>
+</html>

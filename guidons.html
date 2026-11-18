@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Guidons: Regulation, Non-Regulation &amp; Ready-to-Fly — The Whimsical Pig</title>
+<meta name="description" content="Embroidered company guidons, regulation and non-regulation, one- or two-sided, ready to fly or framed for display. Made in Watertown, NY, near Fort Drum.">
+<meta property="og:title" content="Custom Guidons: Regulation, Non-Regulation &amp; Ready-to-Fly — The Whimsical Pig">
+<meta property="og:description" content="Embroidered company guidons, regulation and non-regulation, one- or two-sided, ready to fly or framed for display. Made in Watertown, NY, near Fort Drum.">
+<meta property="og:image" content="images/work/military-shadow-boxes_13.webp">
+<meta name="theme-color" content="#141112">
+<link rel="icon" href="images/favicon.png">
+<link rel="preload" href="fonts/lato-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+</head>
+<body data-page="guidons">
+
+<header id="site-header"></header>
+<script src="settings.js"></script>
+<script src="site.js"></script>
+
+<main>
+  <section class="page-intro blush">
+    <div class="wrap">
+      <img class="flying-pig" src="images/flying-pig.webp" alt="">
+      <span class="eyebrow">Made in our shop</span>
+      <h1>Custom <em>Guidons</em></h1>
+      <div class="rule-orn" aria-hidden="true"><span></span></div>
+      <p>Regulation and non-regulation guidons, embroidered here in Watertown. Ready to fly, or framed with a dedication plate.</p>
+      <p class="svc-ctas"><a class="btn" href="order.html?type=guidon">Order a Guidon</a> <a class="btn ghost" href="work.html?group=Military">See our work</a></p>
+    </div>
+    <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 120 60, 240 0, 360 30 S 600 60, 720 30 S 960 0, 1080 30 S 1320 60, 1440 30 V60 H0 Z" fill="#141112"/></svg>
+  </section>
+
+  <section class="block">
+    <div class="wrap svc">
+      <div class="svc-text">
+        <h2>Guidons, Your Way</h2>
+        <p>We make company guidons to regulation size, plus non-regulation guidons in your own colors and design.</p><p>Tell us your unit designation exactly as it should read, and send a photo of your current guidon or your artwork. We&#x27;ll confirm every detail before we stitch.</p>
+        <ul class="svc-list"><li><strong>Regulation guidons</strong><span>20 × 28 inches, made to regulation spec.</span></li><li><strong>Non-regulation guidons</strong><span>From 5 × 7 up to 15 × 20 inches, in your design and colors.</span></li><li><strong>Ready to fly</strong><span>Finished with a pole sleeve, ready to carry.</span></li><li><strong>One- or two-sided</strong><span>Guidons that fly are usually two-sided. One-sided is fine for framing.</span></li><li><strong>Framed for display</strong><span>With a dedication plate, rank, crest and coins: a classic change of command gift.</span></li><li><strong>Battalion colors</strong><span>Embroidered battalion colors and framed battalion displays.</span></li></ul>
+      </div>
+      <div class="gallery svc-pics" id="svc-pics"></div>
+    </div>
+  </section>
+
+  <section class="block blush">
+    <div class="wrap">
+      <div class="head"><span class="eyebrow">Easy as one, two, three</span><h2>What We Need From You</h2></div>
+      <ol class="steps svc-steps"><li><span class="num">i.</span><h3>Your unit designation</h3><p>Spelled exactly as it should appear, for example 4-31/B INF.</p></li><li><span class="num">ii.</span><h3>A photo or artwork</h3><p>Your current guidon, or the design you want.</p></li><li><span class="num">iii.</span><h3>Colors, quantity &amp; date</h3><p>How many, the colors, and when you need them in hand.</p></li></ol>
+      <p class="svc-ctas center"><a class="btn" href="order.html?type=guidon">Order a Guidon</a></p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap svc-visit">
+      <h2>Come See Us</h2>
+      <p>50 Public Square, Suite E1, Watertown, New York · Monday to Friday, 9am to 5pm · <a href="tel:315-773-3758">315-773-3758</a></p>
+      <p class="svc-ctas center"><a class="btn ghost" href="visit.html">Visit the Shop</a> <a class="btn ghost" href="help.html">Questions? See Help</a></p>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script>
+  const pics = ["military-shadow-boxes_13", "military-shadow-boxes_11", "military-shadow-boxes_03", "military-shadow-boxes_04", "military-shadow-boxes_09", "military-shadow-boxes_01"];
+  renderGallery(document.getElementById("svc-pics"), pics.map(k => WORK.find(w => w[0] === k)).filter(Boolean));
+</script>
+</body>
+</html>
