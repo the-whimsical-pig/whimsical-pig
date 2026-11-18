@@ -33,6 +33,10 @@ window.SETTINGS = {
       a: "Yes. We design logos, shirt and event designs in-house, and businesses and events can become year-round merch partners with 10% off their merch. See our Design & Merch page or email us at {email}.",
     },
     {
+      q: "Do you make plaques, name plates and ready-to-fly guidons?",
+      a: "Yes. We make wood plaques with engraved metal plates, name plates for desks, doors, walls and equipment, and award plaques. We also make guidons, framed for display or finished ready to fly. Start an order and pick Plaques & Engraving or Guidons.",
+    },
+    {
       q: "How long will my order take?",
       a: "Every piece is different. We'll give you an estimated completion date with your quote. If you have a ceremony or event date, add it to your order so we can plan around it.",
     },

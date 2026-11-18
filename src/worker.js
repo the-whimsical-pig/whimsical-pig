@@ -1376,7 +1376,7 @@ async function saveSite(request, env) {
   const b = await readJson(request);
   const site = await siteData(env);
   if (b.banners !== undefined) {
-    if (!Array.isArray(b.banners) || b.banners.length > 12) return json({ error: "Up to 12 banners." }, 400);
+    if (!Array.isArray(b.banners) || b.banners.length > 30) return json({ error: "Up to 30 banners." }, 400);
     const out = [];
     for (const x of b.banners) {
       const link = safeLink(x.link);

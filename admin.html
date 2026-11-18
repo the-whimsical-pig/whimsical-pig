@@ -268,7 +268,6 @@
       <button role="tab" aria-selected="true" data-tab="orders">Shop Orders <span class="count" id="n-orders"></span></button>
       <button role="tab" aria-selected="false" data-tab="items">Shop Items <span class="warn" id="n-low"></span></button>
       <button role="tab" aria-selected="false" data-tab="banners">Banners</button>
-      <button role="tab" aria-selected="false" data-tab="themes">Holiday Looks</button>
       <button role="tab" aria-selected="false" data-tab="photos">Site Photos</button>
       <button role="tab" aria-selected="false" data-tab="social">Facebook Posts</button>
       <button role="tab" aria-selected="false" data-tab="requests">Order Backup <span class="warn" id="n-requests"></span></button>
@@ -370,17 +369,35 @@
     <section id="tab-banners" hidden>
       <div class="toolbar">
         <div>
-          <h2>Banners</h2>
-          <p class="hint">Notices on the website: sales, holiday deadlines, closures, events. Changes show on the site within a minute.</p>
+          <h2>Banners &amp; Holidays</h2>
+          <p class="hint">Notices on the website: sales, holiday deadlines, closures, events. Pick a ready-made holiday banner from the list, check the wording, then Save. Changes show on the site within a minute.</p>
         </div>
         <div class="tools">
           <select id="banner-new" aria-label="Add a banner">
             <option value="">+ Add a banner…</option>
-            <option value="bar">Top bar (thin strip on every page)</option>
-            <option value="feature">Feature banner (big, with a photo)</option>
-            <option value="holiday">Holiday order deadline</option>
-            <option value="closed">Closed notice</option>
-            <option value="event">We'll be at an event</option>
+            <optgroup label="Start from scratch">
+              <option value="bar">Top bar (strip on every page)</option>
+              <option value="feature">Feature banner (big, with a photo)</option>
+              <option value="closed">Closed notice</option>
+              <option value="event">We'll be at an event</option>
+            </optgroup>
+            <optgroup label="Closed for a holiday">
+              <option value="h_newyear">New Year's Day</option>
+              <option value="h_memorial">Memorial Day</option>
+              <option value="h_july4">Independence Day</option>
+              <option value="h_labor">Labor Day</option>
+              <option value="h_thanksgiving">Thanksgiving</option>
+              <option value="h_christmas">Christmas</option>
+            </optgroup>
+            <optgroup label="Holiday gifts & thank-yous">
+              <option value="holiday">Christmas: order-by date</option>
+              <option value="g_valentines">Valentine's Day</option>
+              <option value="g_mothers">Mother's Day</option>
+              <option value="g_military">Military Appreciation Month (May)</option>
+              <option value="g_graduation">Graduation season</option>
+              <option value="g_fathers">Father's Day</option>
+              <option value="g_veterans">Veterans Day</option>
+            </optgroup>
           </select>
           <button class="btn sm" id="banners-save" type="button">Save Banners</button>
         </div>
@@ -388,21 +405,13 @@
       <p class="hint" id="banners-msg" role="status"></p>
       <div class="list" id="banners"></div>
       <input type="file" id="banner-photo-pick" accept="image/*" hidden>
-    </section>
 
-    <!-- Holiday versions of the logos and flying pig -->
-    <section id="tab-themes" hidden>
-      <div class="toolbar">
-        <div>
-          <h2>Holiday Looks</h2>
-          <p class="hint">Save holiday versions of our logos and flying pig. Give a look its dates once and it switches on by itself every year, then back to the normal look.</p>
-        </div>
-        <div class="tools">
-          <select id="theme-new" aria-label="Add a holiday look"></select>
-          <button class="btn sm" id="themes-save" type="button">Save Holiday Looks</button>
-        </div>
-      </div>
-      <p class="hint">Tip: use PNG pictures with a see-through background so they sit nicely on the black. Only one look shows at a time; if two have the same dates, the one higher in the list wins.</p>
+      <!-- Holiday versions of the logos and flying pig -->
+      <div class="sec-head" id="holiday-looks"><h3 class="sub-h">Holiday logos</h3>
+        <select id="theme-new" aria-label="Add a holiday look"></select>
+        <button class="btn sm" id="themes-save" type="button">Save Holiday Logos</button></div>
+      <p class="hint">Holiday versions of our logos and flying pig. Give one its dates once and it switches on by itself every year, then back to normal.
+        Use PNG pictures with a see-through background. Only one shows at a time; if two have the same dates, the higher one wins.</p>
       <p class="hint" id="themes-msg" role="status"></p>
       <div class="list" id="themes"></div>
       <input type="file" id="theme-pick" accept="image/png,image/webp,image/jpeg" hidden>
@@ -600,7 +609,7 @@
 
   // ---------- tabs ----------
   const loaders = { requests: () => loadRequests(), orders: () => loadOrders(), items: () => loadItems(),
-                    banners: () => loadBanners(), themes: () => loadThemes(), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
+                    banners: () => loadBanners().then(loadThemes), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-tab]").forEach(o => {
       o.setAttribute("aria-selected", o === b);
@@ -1248,11 +1257,48 @@
     drawBanners();
   }
   const isoDay = d => d.toISOString().slice(0, 10);
+  // Holiday dates: the next time each one comes (this year, or next year once it's passed)
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const nthWeekday = (y, m, wd, n) => { const d = new Date(y, m, 1); d.setDate(1 + (wd - d.getDay() + 7) % 7 + (n - 1) * 7); return d; };
+  const lastWeekday = (y, m, wd) => { const d = new Date(y, m + 1, 0); d.setDate(d.getDate() - (d.getDay() - wd + 7) % 7); return d; };
+  const observed = d => d.getDay() === 6 ? addDays(d, -1) : d.getDay() === 0 ? addDays(d, 1) : d;   // a weekend holiday is closed Fri/Mon
+  const HOLIDAYS = {
+    newyear: y => observed(new Date(y, 0, 1)), memorial: y => lastWeekday(y, 4, 1), july4: y => observed(new Date(y, 6, 4)),
+    labor: y => nthWeekday(y, 8, 1, 1), thanksgiving: y => nthWeekday(y, 10, 4, 4), christmas: y => observed(new Date(y, 11, 25)),
+    valentines: y => new Date(y, 1, 14), mothers: y => nthWeekday(y, 4, 0, 2), fathers: y => nthWeekday(y, 5, 0, 3), veterans: y => new Date(y, 10, 11),
+  };
+  const nextHoliday = key => { const t = new Date(); t.setHours(0, 0, 0, 0); const d = HOLIDAYS[key](t.getFullYear()); return d < t ? HOLIDAYS[key](t.getFullYear() + 1) : d; };
+  const dayName = d => d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const nextOpen = d => { let n = addDays(d, 1); while (n.getDay() === 0 || n.getDay() === 6) n = addDays(n, 1); return n.toLocaleDateString("en-US", { weekday: "long" }); };
+  const closedFor = (key, name, extra) => () => { const d = nextHoliday(key);
+    return { kind: "bar", style: "alert", text: `We're closed ${dayName(d)} for ${name}. Back ${nextOpen(d)} at 9am!${extra ? " " + extra : ""}`,
+             pages: ["all"], start: ymd(addDays(d, -7)), end: ymd(d) }; };
+  const giftFor = (key, text, daysBefore = 30) => () => { const d = nextHoliday(key);
+    return { kind: "bar", style: "pink", text: text.replace("{date}", dayName(d)), button: "Start an Order", link: "order.html",
+             pages: ["all"], start: ymd(addDays(d, -daysBefore)), end: ymd(d) }; };
+  const inMonth = (m, from, to, banner) => () => { const t = new Date(), y = new Date(t.getFullYear(), to[0], to[1]) < t ? t.getFullYear() + 1 : t.getFullYear();
+    return { ...banner, pages: ["all"], start: ymd(new Date(y, from[0], from[1])), end: ymd(new Date(y, to[0], to[1])) }; };
   const PRESETS = {
+    h_newyear: closedFor("newyear", "New Year's Day", "Happy New Year!"),
+    h_memorial: closedFor("memorial", "Memorial Day", "We remember those who gave all."),
+    h_july4: closedFor("july4", "Independence Day", "Happy Fourth of July!"),
+    h_labor: closedFor("labor", "Labor Day"),
+    h_thanksgiving: closedFor("thanksgiving", "Thanksgiving", "Happy Thanksgiving from our family to yours!"),
+    h_christmas: closedFor("christmas", "Christmas", "Merry Christmas!"),
+    g_valentines: giftFor("valentines", "Valentine's Day is {date}. Frame a photo or keepsake they'll love. Order early so it's ready in time!"),
+    g_mothers: giftFor("mothers", "Mother's Day is {date}. A framed photo or an embroidered gift makes it personal. Order early!"),
+    g_fathers: giftFor("fathers", "Father's Day is {date}. Frame his jersey, flag or favorite photo. Order early so it's ready!"),
+    g_veterans: () => { const d = nextHoliday("veterans");
+      return { kind: "bar", style: "black", text: "Happy Veterans Day. Thank you to every veteran we've had the honor to serve.", pages: ["all"], start: ymd(addDays(d, -3)), end: ymd(d) }; },
+    g_military: inMonth(4, [4, 1], [4, 31], { kind: "bar", style: "black", text: "May is Military Appreciation Month. Thank you to every soldier and family we serve." }),
+    g_graduation: inMonth(4, [4, 1], [5, 30], { kind: "bar", style: "pink", text: "Graduation season! Frame the diploma, tassel and photos together in one keepsake.",
+      button: "Start an Order", link: "order.html" }),
     bar: () => ({ kind: "bar", style: "pink", text: "", title: "", pages: ["all"] }),
     feature: () => ({ kind: "feature", style: "pink", title: "", text: "", pages: ["home"] }),
-    holiday: () => ({ kind: "bar", style: "black", text: "Ordering a framed gift for the holidays? Please order by Dec 1 so it's ready in time.",
-      button: "Start an Order", link: "order.html", pages: ["all"], end: new Date().getFullYear() + "-12-01" }),
+    holiday: () => { const t = new Date(), y = t > new Date(t.getFullYear(), 11, 1) ? t.getFullYear() + 1 : t.getFullYear();
+      return { kind: "bar", style: "black", text: "Ordering a framed gift for Christmas? Please order by December 1 so it's ready in time.",
+        button: "Start an Order", link: "order.html", pages: ["all"], start: `${y}-11-01`, end: `${y}-12-01` }; },
     closed: () => ({ kind: "bar", style: "alert", text: "We're closed this Friday. Back Monday at 9am!", pages: ["all"], end: isoDay(new Date(Date.now() + 7 * 86400000)) }),
     event: () => ({ kind: "feature", style: "pink", title: "Come See Us!", text: "We'll be at the Lewis County Ren Faire with all-new shirts.",
       button: "Shop Ren Faire Merch", link: "shop.html?c=lewis-county-ren-faire", pages: ["home", "shop"] }),
@@ -1357,7 +1403,7 @@
     ["St. Patrick's Day", "03-10", "03-17"], ["Easter", "", ""], ["Other", "", ""]];
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   let themes = [], themeTrash = [], themePick = null;
-  $("theme-new").innerHTML = '<option value="">+ New holiday look…</option>' + THEME_PRESETS.map((p, i) => `<option value="${i}">${esc(p[0])}</option>`).join("");
+  $("theme-new").innerHTML = '<option value="">+ New holiday logo…</option>' + THEME_PRESETS.map((p, i) => `<option value="${i}">${esc(p[0])}</option>`).join("");
   async function loadThemes() {
     try { await loadSite(); } catch (err) { $("themes").innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
     themes = (site.themes || []).map(t => ({ ...t, photos: { ...t.photos } }));
@@ -1373,7 +1419,7 @@
       `<option${d === n ? " selected" : ""}>${n}</option>`).join("")}</select>`;
   }
   function drawThemes() {
-    if (!themes.length) { $("themes").innerHTML = '<div class="empty">No holiday looks yet. Pick one from “+ New holiday look…” to start.</div>'; return; }
+    if (!themes.length) { $("themes").innerHTML = '<div class="empty">No holiday looks yet. Pick one from “+ New holiday logo…” to start.</div>'; return; }
     $("themes").innerHTML = themes.map((t, i) => `
       <div class="card theme${t.id && t.id === site.activeTheme ? " live" : ""}" data-i="${i}">
         <div class="theme-head">
@@ -1402,7 +1448,7 @@
       </div>`).join("");
   }
   const themeMsg = t => { $("themes-msg").textContent = t; };
-  const unsaved = () => themeMsg("Press Save Holiday Looks to keep your changes.");
+  const unsaved = () => themeMsg("Press Save Holiday Logos to keep your changes.");
   $("theme-new").onchange = e => {
     const p = THEME_PRESETS[e.target.value]; e.target.value = "";
     if (!p) return;
