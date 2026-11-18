@@ -1,6 +1,4 @@
 // The Whimsical Pig — website back end (Cloudflare Worker)
-import { suggestItems, ITEM_GROUPS, ITEM_DEFAULTS } from "./shopvox-items.js";
-import { SHOPVOX_PRODUCTS } from "./shopvox-products.js";
 //
 // Static pages (index.html, shop.html, admin.html, ...) are served from the repo
 // by Cloudflare's asset hosting. This Worker handles:
@@ -181,9 +179,6 @@ async function route(request, env, url, path, ctx) {
   if (path === "/api/order-request" && m === "POST") return saveOrderRequest(request, env, ctx);
   const sf = path.match(/^\/api\/files\/(\d+)\/([a-f0-9]{32})$/);
   if (sf && m === "GET") return serveSharedFile(env, +sf[1], sf[2]);
-  // The "make a sales order" link at the bottom of each shopVOX lead
-  const so = path.match(/^\/api\/sales-order\/(\d+)\/([a-f0-9]{32})$/);
-  if (so && (m === "GET" || m === "POST")) return salesOrderPage(env, +so[1], so[2], m === "POST", url.origin);
   const ov = path.match(/^\/api\/order-view\/(\d+)\/([a-f0-9]{32})(\/photos\.zip)?$/);
   if (ov && m === "GET") return ov[3] ? orderPhotosZip(env, +ov[1], ov[2]) : orderViewPage(env, +ov[1], ov[2], url.origin);
 
@@ -219,18 +214,7 @@ async function route(request, env, url, path, ctx) {
     if (rm && m === "DELETE") return deleteRequest(env, +rm[1]);
     const rsv = path.match(/^\/api\/admin\/requests\/(\d+)\/shopvox$/);
     if (rsv && m === "POST") return sendRequestToShopvox(env, +rsv[1], url.origin);
-    const rso = path.match(/^\/api\/admin\/requests\/(\d+)\/sales-order$/);
-    if (rso && m === "POST") {
-      const r = await env.DB.prepare(`SELECT * FROM requests WHERE id = ?`).bind(+rso[1]).first();
-      if (!r) return json({ error: "Request not found." }, 404);
-      const res = await makeSalesOrder(env, r, url.origin);
-      return res.ok ? json(res) : json({ error: res.error }, 502);
-    }
     if (path === "/api/admin/shopvox-test" && m === "POST") return shopvoxTest(env);
-    if (path === "/api/admin/shopvox-items" && m === "GET") return shopvoxItemsInfo(env);
-    if (path === "/api/admin/shopvox-items" && m === "PUT") return saveShopvoxItems(request, env);
-    if (path === "/api/admin/shopvox-products" && m === "PUT") return saveShopvoxProducts(request, env);
-    if (path === "/api/admin/shopvox-item-test" && m === "POST") return itemLinkTest(env);
     const fm = path.match(/^\/api\/admin\/request-files\/(\d+)$/);
     if (fm && m === "GET") return serveRequestFile(env, +fm[1]);
   }
@@ -739,19 +723,11 @@ async function saveOrderRequest(request, env, ctx) {
     }
   }
 
-  // Each answer on its own (question id -> values), used to pick shopVOX products
-  let answers = "";
-  try {
-    const a = JSON.parse(field("answers", 12000) || "null");
-    if (a && typeof a === "object") answers = JSON.stringify({ type: String(a.type || "").slice(0, 40), example: String(a.example || "").slice(0, 120),
-      q: Object.fromEntries(Object.entries(a.q && typeof a.q === "object" ? a.q : {}).slice(0, 80)
-        .map(([k, v]) => [String(k).slice(0, 60), (Array.isArray(v) ? v : [v]).slice(0, 20).map(x => String(x).slice(0, 2000))])) });
-  } catch (e) { /* the summary still has everything */ }
   const row = await env.DB.prepare(
-    `INSERT INTO requests (ref, type, name, email, phone, needed_by, fulfill, summary, unit, answers)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+    `INSERT INTO requests (ref, type, name, email, phone, needed_by, fulfill, summary, unit)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   ).bind(ref, field("type", 80), field("name"), field("email"), field("phone", 40),
-         field("needed_by", 40), field("fulfill", 80), summary, field("unit", 120), answers).first();
+         field("needed_by", 40), field("fulfill", 80), summary, field("unit", 120)).first();
   for (const f of files) await saveRequestFile(env, row.id, f);
   // Copy it into shopVOX as a sales lead (after the customer gets their reply)
   const origin = new URL(request.url).origin;
@@ -1528,85 +1504,6 @@ const shopvoxError = r => {
   return `shopVOX said ${r.status}${msg ? ": " + String(msg).slice(0, 200) : ""}`;
 };
 
-// Kat's matches of answers -> shopVOX products (admin page: shopVOX Items)
-const itemSlots = async env => ((await kvGet(env, "shopvox_items")) || {}).value || {};
-async function shopvoxItemsInfo(env) {
-  const slots = await itemSlots(env);
-  const list = (await kvGet(env, "shopvox_products")) || null;
-  return json({
-    groups: ITEM_GROUPS.map(g => ({ title: g.title, hint: g.hint, slots: g.slots.map(([key, label, product, note]) =>
-      ({ key, label, product: (slots[key] || ITEM_DEFAULTS[key]).product, note: (slots[key] || ITEM_DEFAULTS[key]).note, defaultProduct: product, defaultNote: note })) })),
-    products: list ? list.value.products : SHOPVOX_PRODUCTS, productsDate: list ? list.value.date : "2026-11-12",
-  }, 200, { "Cache-Control": "no-store" });
-}
-async function saveShopvoxItems(request, env) {
-  const b = await readJson(request);
-  const slots = {};
-  for (const [k, v] of Object.entries(b.slots && typeof b.slots === "object" ? b.slots : {})) {
-    if (!ITEM_DEFAULTS[k] || !v || typeof v !== "object") continue;
-    const s = { product: cleanText(v.product, 150), note: cleanText(v.note, 200) };
-    if (s.product !== ITEM_DEFAULTS[k].product || s.note !== ITEM_DEFAULTS[k].note) slots[k] = s;
-  }
-  await kvPut(env, "shopvox_items", slots, 0);
-  return shopvoxItemsInfo(env);
-}
-// Ways of sending a line item so shopVOX picks the real product by its name. The API docs
-// say a reference can be set by name instead of ID; which fields it wants on a line item
-// isn't documented, so the Item Linking test (Admin → Setup) puts each way on one test
-// sales order. The way that works is saved (or set as the default here).
-const LINK_WAYS = {
-  1: (p, q) => ({ productName: p, quantity: q }),
-  2: (p, q) => ({ productName: p, productType: "Product", quantity: q }),
-  3: (p, q) => ({ name: p, productName: p, productType: "Product", saleType: "In House", uom: "Each", quantity: q }),
-  4: (p, q) => ({ productName: p, productType: "Product", priceBy: "standard", quantity: q }),
-  5: (p, q) => ({ product: { name: p }, quantity: q }),
-  6: (p, q) => ({ product_name: p, product_type: "Product", quantity: q }),
-  7: (p, q) => ({ productName: p, quantity: q, description: "" }),
-};
-const linkWay = async env => +(((await kvGet(env, "shopvox_item_way")) || {}).value || 0) || 2;
-async function itemLinkTest(env) {
-  if (!shopvoxReady(env)) return json({ error: "shopVOX isn't set up." }, 503);
-  const P = "8x11 Guidon, single-sided, unfinished";
-  const who = await findShopvoxCustomer(env, { email: "wwagner@yolc.org", name: "Wyatt Wagner", phone: "3158166448" });
-  const ways = Object.keys(LINK_WAYS).map(Number);
-  const wo = { title: "WEBSITE ITEM TEST (delete me)", txnDate: todayNY(),
-    description: `Test from the website: each line is the same product (${P}) sent a different way. Line 1 = way 1, line 2 = way 2, and so on. Which lines show as the real product with its price? Then delete this sales order.`,
-    ...(who.companyId ? { companyId: who.companyId } : { companyName: "Website item test" }), ...(who.contactId ? { primaryContactId: who.contactId } : {}) };
-  let res = null, used = ways;
-  for (const list of [ways, ways.filter(w => w !== 5 && w !== 6)]) {
-    used = list;
-    res = await shopvoxCall(env, "POST", "/sales_orders", { workOrder: { ...wo, lineItems: list.map((w, i) => ({ ...LINK_WAYS[w](P, "1.0"), position: String(i + 1) })) } });
-    if (res.ok && res.data && res.data.id) break;
-  }
-  if (!(res.ok && res.data && res.data.id)) return json({ error: shopvoxError(res) }, 502);
-  // If shopVOX lets us read it back, see which lines got the real product
-  const back = await shopvoxCall(env, "GET", `/sales_orders/${encodeURIComponent(res.data.id)}`);
-  const W = back.ok && back.data && (back.data.workOrder || back.data);
-  const lines = W && Array.isArray(W.lineItems) ? W.lineItems : null;
-  const linked = lines ? used.filter((w, i) => lines[i] && lines[i].productId) : null;
-  if (linked && linked.length) await kvPut(env, "shopvox_item_way", linked[0], 0);
-  return json({ ok: true, number: String(res.data.txnNumber || ""), ways: used, linked, chosen: linked && linked.length ? linked[0] : null });
-}
-
-// A fresh product list from a shopVOX export (read in the browser): [[name, category, price, pricing, units, taxable, sale type], ...]
-async function saveShopvoxProducts(request, env) {
-  const b = await readJson(request);
-  const list = (Array.isArray(b.products) ? b.products : []).slice(0, 5000)
-    .map(p => Array.isArray(p) ? [cleanText(p[0], 150), cleanText(p[1], 120), Math.max(0, parseFloat(p[2]) || 0), cleanText(p[3], 30), cleanText(p[4], 20) || "Each", cleanText(p[5], 5), cleanText(p[6], 30)] : [cleanText(p, 150)])
-    .filter(p => p[0]);
-  if (!list.length) return json({ error: "No products found in that file." }, 400);
-  await kvPut(env, "shopvox_products", { products: list, date: todayNY() }, 0);
-  return shopvoxItemsInfo(env);
-}
-
-// The shopVOX products their answers point to, written out for a quote or order
-function suggestedLines(r, slots) {
-  let items = [];
-  try { items = suggestItems(JSON.parse(r.answers || "null"), r.needed_by, todayNY(), slots); } catch (e) { items = []; }
-  return items.length ? ["", "Suggested shopVOX items (from their answers):",
-    ...items.map(i => `- ${i.product}${i.quantity > 1 ? ` × ${i.quantity}` : ""}${i.check ? ` (CHECK: ${i.check})` : ""}`)] : [];
-}
-
 // The lead: title, every answer, and links to the customer's photos
 async function pushRequestToShopvox(env, id, origin) {
   const r = await env.DB.prepare(`SELECT * FROM requests WHERE id = ?`).bind(id).first();
@@ -1632,11 +1529,9 @@ async function pushRequestToShopvox(env, id, origin) {
     r.fulfill && `Pick up / ship: ${r.fulfill}`,
     "",
     r.summary,
-    ...suggestedLines(r, await itemSlots(env)),
     files.length ? "\nPhotos and files from the customer:" : "",
     ...files.map(f => `${f.name}: ${base}/api/files/${f.id}/${f.share_key}`),
-  ].filter(x => x !== null && x !== undefined && x !== false).join("\n").slice(0, 19000) +
-    `\n\nQuoted and approved? Turn this lead into a shopVOX sales order:\n${base}/api/sales-order/${r.id}/${r.convert_key}`;
+  ].filter(x => x !== null && x !== undefined && x !== false).join("\n").slice(0, 20000);
 
   // Attach the lead to the customer already in shopVOX, so no duplicate contacts:
   // same email first, then same name and phone, then a customer with the same name
@@ -1818,98 +1713,10 @@ async function sendRequestToShopvox(env, id, origin) {
 // the lead as it is now in shopVOX (its customer, company and rep, even if someone
 // changed them there), with every answer and photo link. Prices are added in shopVOX.
 // One page with everything the customer sent (answers and photos), for whoever builds
-// the quote or sales order. Same key as the sales-order link.
-async function orderKey(env, r) {
-  if (!r.convert_key) {
-    r.convert_key = randomKey();
-    await env.DB.prepare(`UPDATE requests SET convert_key = ? WHERE id = ?`).bind(r.convert_key, r.id).run();
-  }
-  return r.convert_key;
-}
-const orderViewLink = (base, r) => `${base}/api/order-view/${r.id}/${r.convert_key}`;
-
-async function makeSalesOrder(env, r, origin) {
-  if (r.shopvox_order) return { ok: true, already: true, ...JSON.parse(r.shopvox_order) };
-  if (!shopvoxReady(env)) return { error: "shopVOX isn't set up (see Setup)." };
-  if (!r.shopvox_id) return { error: "This order isn't in shopVOX as a sales lead yet. Send it to shopVOX first." };
-  const got = await shopvoxCall(env, "GET", `/sales_leads/${encodeURIComponent(r.shopvox_id)}`);
-  const L = (got.ok && got.data && (got.data.salesLead || got.data.sales_lead || got.data)) || {};
-  const who = L.companyId && L.primaryContactId ? {} : await findShopvoxCustomer(env, r);
-  const { results: files } = await env.DB.prepare(`SELECT id, name, share_key FROM request_files WHERE request_id = ?`).bind(r.id).all();
-  const base = env.SITE_URL || origin;
-  await orderKey(env, r);
-  const view = orderViewLink(base, r);
-  const due = /^\d{4}-\d{2}-\d{2}$/.test(r.needed_by || "") ? r.needed_by : "";
-  const repId = L.salesRepId || env.SHOPVOX_SALES_REP_ID || ((await kvGet(env, "shopvox_rep")) || {}).value?.id || "";
-  const companyId = L.companyId || who.companyId, contactId = L.primaryContactId || who.contactId;
-  const notes = [
-    `PHOTOS AND EVERY ANSWER ON ONE PAGE: ${view}`, "",
-    `Website order ${r.ref}`, r.unit && `Unit: ${r.unit}`, due && `Needed by: ${due}`, r.fulfill && `Pick up / ship: ${r.fulfill}`, "",
-    r.summary,
-    files.length ? "\nPhotos and files from the customer:" : "",
-    ...files.filter(f => f.share_key).map(f => `${f.name}: ${base}/api/files/${f.id}/${f.share_key}`),
-  ].filter(x => x !== null && x !== undefined && x !== false).join("\n").slice(0, 20000);
-  // The customer's order goes in as the first line item, where it's seen while picking
-  // the real items: its description has every answer. Change or replace it in shopVOX.
-  const item = { name: `Customer's order from the website (${r.type || "custom order"})`.slice(0, 120),
-    description: notes, position: "1", quantity: "1.0", uom: "Each", priceInDollars: "0.0", totalPriceInDollars: "0.0" };
-  const wo = {
-    title: String(L.title || `${r.ref} · ${r.type || "Website order"} · ${r.name || "Customer"}`).slice(0, 200),
-    description: notes,
-    specialNotes: `Website order ${r.ref}. Photos and every answer: ${view}`,
-    txnDate: todayNY(),
-    ...(due ? { dueDate: due, inHandDate: due } : {}),
-    ...(companyId ? { companyId } : { companyName: r.unit || r.name || "Website customer" }),
-    ...(contactId ? { primaryContactId: contactId } : {}),
-    ...(repId ? { primarySalesRepId: repId } : env.SHOPVOX_SALES_REP ? { salesRepName: env.SHOPVOX_SALES_REP } : {}),
-  };
-  // Then the shopVOX products their answers point to (src/shopvox-items.js)
-  let picked = [];
-  const slots = await itemSlots(env);
-  try { picked = suggestItems(JSON.parse(r.answers || "null"), due, todayNY(), slots); } catch (e) { picked = []; }
-  // Each product sent the way shopVOX picks the real product (see LINK_WAYS), so it
-  // brings its own price and details. No price is sent: shopVOX's product sets it.
-  const way = await linkWay(env);
-  const products = picked.map((p, i) => ({ ...LINK_WAYS[way](p.product, `${p.quantity}.0`), position: String(i + 2),
-    ...(p.check && way !== 7 ? { description: `CHECK: ${p.check}` } : {}) }));
-  const { name, description, quantity } = item;
-  // If shopVOX refuses, try simpler versions so the order still gets made
-  const tries = [
-    ...(products.length ? [{ items: [item, ...products], withProducts: true }] : []),
-    { items: [item], withProducts: false }, { items: [{ name, description, quantity }], withProducts: false }, { items: null, withProducts: false },
-  ];
-  let res = null, productsIn = false;
-  for (const t of tries) {
-    res = await shopvoxCall(env, "POST", "/sales_orders", { workOrder: t.items ? { ...wo, lineItems: t.items } : wo });
-    productsIn = t.withProducts;
-    if ((res.ok && res.data && res.data.id) || !(res.status >= 400 && res.status < 500 && res.status !== 401 && res.status !== 403)) break;
-  }
-  const productError = picked.length && !productsIn && res.ok ? "shopVOX wouldn't take the picked products" : "";
-  if (!(res.ok && res.data && res.data.id)) return { error: shopvoxError(res) };
-  const made = { id: String(res.data.id), number: String(res.data.txnNumber || "") };
-  await env.DB.prepare(`UPDATE requests SET shopvox_order = ? WHERE id = ?`).bind(JSON.stringify(made), r.id).run();
-
-  // Read it back: what did shopVOX keep? If the notes didn't stick, set them again
-  const back = await shopvoxCall(env, "GET", `/sales_orders/${encodeURIComponent(made.id)}`);
-  const W = (back.ok && back.data && (back.data.workOrder || back.data.salesOrder || back.data)) || null;
-  let kept = null;
-  if (W) {
-    if (!W.description && !W.specialNotes) {
-      const fix = await shopvoxCall(env, "PUT", `/sales_orders/${encodeURIComponent(made.id)}`, { workOrder: { description: notes, specialNotes: wo.specialNotes } });
-      if (fix.ok) { const again = await shopvoxCall(env, "GET", `/sales_orders/${encodeURIComponent(made.id)}`);
-        const W2 = again.ok && again.data && (again.data.workOrder || again.data.salesOrder || again.data); if (W2) Object.assign(W, W2); }
-    }
-    const lines = Array.isArray(W.lineItems) ? W.lineItems : [];
-    const isPicked = l => picked.some(p => p.product === (l.productName || l.name));
-    kept = { customer: !!(W.companyId || (W.company && W.company.id)), notes: !!(W.description || W.specialNotes),
-             item: lines.length > 0, due: !!W.dueDate,
-             ...(picked.length ? { products: lines.filter(isPicked).length } : {}) };
-  }
-  return { ok: true, ...made, view, picked: picked.map(p => p.product), ...(productError ? { productError } : {}), ...(kept ? { kept } : {}) };
-}
+// the quote or sales order in shopVOX. The lead links to it.
 
 const htmlEsc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-function salesOrderHtml(title, body, status = 200, wide = false) {
+function pageHtml(title, body, status = 200, wide = false) {
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow"><title>${htmlEsc(title)} · The Whimsical Pig</title><style>
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:#141112;color:#f6eef0;font:16px/1.5 Lato,Arial,sans-serif;padding:16px;box-sizing:border-box}
@@ -1974,7 +1781,7 @@ async function orderPhotosZip(env, id, key) {
 
 async function orderViewPage(env, id, key, origin) {
   const r = await env.DB.prepare(`SELECT * FROM requests WHERE id = ?`).bind(id).first();
-  if (!r || !r.convert_key || !timingSafeEqual(r.convert_key, key)) return salesOrderHtml("Link not found", "<h1>This link isn't valid</h1>", 404);
+  if (!r || !r.convert_key || !timingSafeEqual(r.convert_key, key)) return pageHtml("Link not found", "<h1>This link isn't valid</h1>", 404);
   const { results: files } = await env.DB.prepare(`SELECT id, name, mime, share_key FROM request_files WHERE request_id = ?`).bind(id).all();
   for (const f of files) if (!f.share_key) {
     f.share_key = randomKey();
@@ -1985,7 +1792,7 @@ async function orderViewPage(env, id, key, origin) {
     return /^image\//.test(f.mime) ? `<a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="${htmlEsc(f.name)}"><span>${htmlEsc(f.name)}</span></a>`
       : `<a class="file" href="${src}" target="_blank" rel="noopener">${htmlEsc(f.name)}</a>`;
   }).join("");
-  return salesOrderHtml(`${r.ref} order`, `<h1>${htmlEsc(r.type || "Order")} · ${htmlEsc(r.name || "")}</h1>
+  return pageHtml(`${r.ref} order`, `<h1>${htmlEsc(r.type || "Order")} · ${htmlEsc(r.name || "")}</h1>
     <dl><dt>Order</dt><dd>${htmlEsc(r.ref)}</dd>${r.unit ? `<dt>Unit</dt><dd>${htmlEsc(r.unit)}</dd>` : ""}
     <dt>Needed by</dt><dd>${htmlEsc(r.needed_by || "—")}</dd><dt>Pick up / ship</dt><dd>${htmlEsc(r.fulfill || "—")}</dd>
     ${r.phone ? `<dt>Phone</dt><dd>${htmlEsc(r.phone)}</dd>` : ""}${r.email ? `<dt>Email</dt><dd>${htmlEsc(r.email)}</dd>` : ""}</dl>
@@ -1993,34 +1800,6 @@ async function orderViewPage(env, id, key, origin) {
       <p><a class="btn" href="/api/order-view/${r.id}/${r.convert_key}/photos.zip">Download all photos</a></p>
       <p class="hint">Click a photo to open it full size. To put them on the shopVOX sales order: download them, unzip, then drag them into the order's Assets.</p>` : ""}
     <h2>What they asked for</h2><pre>${htmlEsc(r.summary)}</pre>`, 200, true);
-}
-
-async function salesOrderPage(env, id, key, doIt, origin) {
-  const r = await env.DB.prepare(`SELECT * FROM requests WHERE id = ?`).bind(id).first();
-  if (!r || !r.convert_key || !timingSafeEqual(r.convert_key, key)) return salesOrderHtml("Link not found", "<h1>This link isn't valid</h1><p>Open it from the sales lead in shopVOX.</p>", 404);
-  const facts = `<dl><dt>Order</dt><dd>${htmlEsc(r.ref)}</dd><dt>Customer</dt><dd>${htmlEsc(r.name || "—")}</dd>
-    ${r.unit ? `<dt>Unit</dt><dd>${htmlEsc(r.unit)}</dd>` : ""}<dt>What</dt><dd>${htmlEsc(r.type || "—")}</dd>
-    <dt>Needed by</dt><dd>${htmlEsc(r.needed_by || "—")}</dd></dl>`;
-  if (r.shopvox_order) {
-    const so = JSON.parse(r.shopvox_order);
-    return salesOrderHtml("Already a sales order", `<h1 class="ok">Already a sales order</h1>${facts}<p>It's sales order <b>${htmlEsc(so.number ? "#" + so.number : so.id)}</b> in shopVOX. Nothing else to do here.</p>`);
-  }
-  if (!doIt) {
-    return salesOrderHtml("Make a sales order", `<h1>Make a sales order?</h1>${facts}
-      <p class="hint">This makes a sales order in shopVOX for the customer on this lead, with every answer and photo link and the needed-by date.
-      Use it once the quote is approved. Add or check the items and prices in shopVOX afterward.</p>
-      <form method="post"><button class="btn" type="submit">Create Sales Order</button></form>`);
-  }
-  const res = await makeSalesOrder(env, r, origin);
-  if (!res.ok) return salesOrderHtml("Couldn't make it", `<h1 class="bad">shopVOX didn't make it</h1>${facts}<p>${htmlEsc(res.error)}</p><p class="hint">Go back and try again, or make the sales order in shopVOX by hand.</p>`, 502);
-  const k = res.kept, mark = v => v ? "✓" : "✗ (not kept by shopVOX)";
-  const keptList = (k ? `<ul><li>Customer ${mark(k.customer)}</li><li>Order notes ${mark(k.notes)}</li><li>First item with every answer ${mark(k.item)}</li><li>Due date ${mark(k.due)}</li>
-    ${k.products !== undefined ? `<li>Products added: ${k.products} of ${res.picked.length}</li>` : ""}</ul>` : "") +
-    (res.picked.length ? `<p class="hint">Picked from their answers: ${res.picked.map(htmlEsc).join(", ")}. Items marked CHECK need a look.</p>` : "") +
-    (res.productError ? `<p class="bad">${htmlEsc(res.productError)}; add the items by hand.</p>` : "");
-  return salesOrderHtml("Sales order made", `<h1 class="ok">Sales order made ✓</h1>${facts}<p>Look for sales order <b>${htmlEsc(res.number ? "#" + res.number : res.id)}</b> in shopVOX.
-    Its first item has every answer; replace it with the real items and prices.</p>${keptList}
-    <p><a class="btn" href="${htmlEsc(res.view.replace(/^https?:\/\/[^/]+/, ""))}">See their photos &amp; answers</a></p>`);
 }
 
 // Read-only check that the Account ID and token work

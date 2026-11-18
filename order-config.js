@@ -37,10 +37,6 @@
 //                                  question has that answer (or is: ["a", "b"]
 //                                  for any of several answers); q: "example"
 //                                  checks the starting point they picked
-//
-//  The shop's shopVOX products are picked from these answers on the server
-//  (src/shopvox-items.js). Customers never see the product list. If you change
-//  a question's id or options, update that file too.
 // =====================================================================
 
 window.ORDER = {

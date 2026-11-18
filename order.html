@@ -1109,11 +1109,6 @@
         fd.append("fulfill", valueOf("c_fulfill"));
         fd.append("unit", valueOf("q_unit"));
         fd.append("summary", plainText(ref));
-        // Each answer on its own, so the shop's system can fill in the right items
-        fd.append("answers", JSON.stringify({ type: t ? t.id : "", example: valueOf("example"), q: Object.fromEntries((t ? t.questions : [])
-          .filter(q => q.type !== "note")
-          .filter(q => { const el = form.querySelector(`[name="q_${q.id}"]`); return el && isShown(el); })
-          .map(q => [q.id, valuesOf("q_" + q.id)]).filter(([, v]) => v.length)) }));
         fd.append("website", form.elements.website ? form.elements.website.value : "");
         for (const f of await Promise.all(files.map(f => shrinkPhoto(f)))) fd.append("photos", f, f.name);
         try {
