@@ -249,3 +249,15 @@ Each website order becomes a shopVOX **sales lead** with every answer, the custo
 
 - `fort-drum.html`, `guidons.html`, `snowshoes.html`, `plaques.html`: service pages (linked from the home page's specialties and the footer, listed in the sitemap). Shared styles are the `.svc` rules at the end of `site.css`.
 - `_redirects`: the old website's page addresses (location.html, regulation-guidons.html, 10th-mountain-snowshoes.html…) send visitors to the matching new page, so Google results and old links keep working once thewhimsicalpig.com points here.
+
+## Preview site (test changes before they go live)
+
+A second copy of the site, **whimsical-pig-preview**, built from the `claude/kind-turing-6oczei` branch. It has its own empty database and no Square or shopVOX keys, so test orders never reach customers, Square or shopVOX. Every page shows a yellow "Preview site" strip, and Google is told not to list it.
+
+**One-time setup (Cloudflare dashboard, the shop's account):**
+1. Workers & Pages → Create → Import a repository → `the-whimsical-pig/whimsical-pig`.
+2. Project name: `whimsical-pig-preview`. Under build settings set **Deploy command** to `npx wrangler deploy --env preview`, and the **production branch** to `claude/kind-turing-6oczei`.
+3. After the first deploy: the new Worker → Settings → Variables and Secrets → add the secret `ADMIN_PASSWORD` (can be different from the live one).
+4. The preview lives at `https://whimsical-pig-preview.<your-subdomain>.workers.dev`.
+
+**How changes flow:** new work is pushed to `claude/kind-turing-6oczei` first → it appears on the preview site → once it looks right, it's merged into `main` → the live site updates.

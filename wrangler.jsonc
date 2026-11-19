@@ -47,5 +47,28 @@
       "binding": "DB",
       "database_name": "whimsical-pig-shop"
     }
-  ]
+  ],
+
+  // PREVIEW COPY for testing changes before they go live (README: "Preview site").
+  // Deployed with: npx wrangler deploy --env preview  ->  Worker "whimsical-pig-preview"
+  // Its own empty database, and no Square or shopVOX keys, so test orders never reach
+  // real customers, Square or shopVOX. Every page shows a "Preview site" strip, and
+  // Google is told not to list it.
+  "env": {
+    "preview": {
+      "name": "whimsical-pig-preview",
+      "vars": {
+        "PREVIEW": "1",
+        "SHIPPING_FEE": "5",
+        "REVIEW_URL": "https://www.google.com/search?q=The+Whimsical+Pig+Watertown+NY&ludocid=3617294177447346575#lrd=0x89d86ffd090e832f:0x323335e39ed6818f,3,,,,"
+      },
+      "triggers": { "crons": [] },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "whimsical-pig-preview"
+        }
+      ]
+    }
+  }
 }

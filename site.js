@@ -196,6 +196,13 @@ siteChanges.then(d => {
   const go = () => {
     if ("noSiteChanges" in document.body.dataset) return;     // the admin page shows the originals
     renderBanners(d.banners);
+    // The preview copy of the site says so on every page
+    if (d.preview && !document.querySelector(".preview-strip")) {
+      const p = document.createElement("div");
+      p.className = "preview-strip";
+      p.textContent = "Preview site: for testing changes. Orders here aren't real.";
+      document.body.prepend(p);
+    }
     document.querySelectorAll("[data-all]").forEach(c => addedTiles(c, d));
     document.querySelectorAll("img").forEach(img => applyPhoto(img, d));
     document.dispatchEvent(new CustomEvent("site-changes", { detail: d }));

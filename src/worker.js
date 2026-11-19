@@ -156,7 +156,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     try {
-      if (path === "/robots.txt") return robots(url);
+      if (path === "/robots.txt") return robots(url, env);
       if (path === "/review") return Response.redirect(env.REVIEW_URL || url.origin + "/", 302);
       if (path === "/sitemap.xml") return sitemap(url);
       if (path.startsWith("/api/")) {
@@ -1363,6 +1363,7 @@ async function publicSite(env) {
     replace: { ...site.photos.replace, ...(theme ? theme.photos : {}) },
     theme: theme ? theme.name : "",
     reviews: site.reviews,
+    ...(env.PREVIEW ? { preview: true } : {}),
     added: results.map(r => ({ id: r.id, group: r.grp, caption: r.caption })),
   }, 200, { "Cache-Control": "public, max-age=60" });
 }
@@ -1925,7 +1926,9 @@ async function serveSharedFile(env, id, key) {
 
 const PUBLIC_PAGES = ["", "story.html", "work.html", "design.html", "shop.html", "order.html", "help.html", "visit.html",
   "fort-drum.html", "guidons.html", "snowshoes.html", "plaques.html"];
-function robots(url) {
+function robots(url, env) {
+  // The preview copy stays out of Google
+  if (env.PREVIEW) return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
   return new Response(`User-agent: *\nDisallow: /admin\nDisallow: /admin.html\nDisallow: /api/\nDisallow: /sign.html\n\nSitemap: ${url.origin}/sitemap.xml\n`,
     { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
 }
