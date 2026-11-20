@@ -258,6 +258,6 @@ A second copy of the site, **whimsical-pig-preview**, built from the `claude/kin
 1. Workers & Pages → Create → Import a repository → `the-whimsical-pig/whimsical-pig`.
 2. Project name: `whimsical-pig-preview`. Under build settings set **Deploy command** to `npx wrangler deploy --env preview`, and the **production branch** to `claude/kind-turing-6oczei`.
 3. After the first deploy: the new Worker → Settings → Variables and Secrets → add the secret `ADMIN_PASSWORD` (can be different from the live one).
-4. The preview lives at `https://whimsical-pig-preview.<your-subdomain>.workers.dev`.
+4. The preview lives at https://whimsical-pig-preview.jeepboy9478.workers.dev (set up on the developer's Cloudflare account, separate from the live site).
 
 **How changes flow:** new work is pushed to `claude/kind-turing-6oczei` first → it appears on the preview site → once it looks right, it's merged into `main` → the live site updates.
