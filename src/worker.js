@@ -225,6 +225,14 @@ async function route(request, env, url, path, ctx) {
     if (path === "/api/admin/visits" && m === "GET") return visitStats(env);
     if (path === "/api/admin/test-orders" && m === "DELETE") return deleteTestOrders(env);
     if (path === "/api/admin/backup" && m === "GET") return backup(env);
+    // Versions (preview site only): what's live, what's on preview, go live, restore
+    if (path.startsWith("/api/admin/versions")) {
+      if (!env.PREVIEW) return json({ error: "Versions are managed on the preview site." }, 404);
+      if (path === "/api/admin/versions" && m === "GET") return versionsInfo(env);
+      if (path === "/api/admin/versions/go-live" && m === "POST") return goLive(request, env);
+      if (path === "/api/admin/versions/restore" && m === "POST") return restoreVersion(request, env);
+    }
+    if (path === "/api/admin/preview-reset" && m === "POST") return resetPreviewData(env);
     const fm = path.match(/^\/api\/admin\/request-files\/(\d+)$/);
     if (fm && m === "GET") return serveRequestFile(env, +fm[1]);
   }
@@ -927,6 +935,7 @@ async function setupStatus(request, env, url) {
     dashboard: sandbox ? "https://squareupsandbox.com/dashboard" : "https://app.squareup.com/dashboard",
     category: shopCategory(env),
     shopvox: shopvoxReady(env),
+    preview: !!env.PREVIEW, releases: !!(env.PREVIEW && env.GITHUB_TOKEN),
   }, 200, { "Cache-Control": "no-store" });
 }
 
@@ -1866,6 +1875,96 @@ async function visitStats(env) {
   return json({ days, top, sources, week: (week[0] || {}).n || 0,
     started: (orders.find(o => o.path === "/order#started") || {}).n || 0, sent: (orders.find(o => o.path === "/order#sent") || {}).n || 0 },
     200, { "Cache-Control": "no-store" });
+}
+
+// ---------------------------------------------------------------- versions (preview only)
+// The website's code lives on GitHub: the live site is built from LIVE_BRANCH, the preview
+// from PREVIEW_BRANCH. These read and move those branches with a GitHub token (a secret on
+// the preview Worker only). Nothing here touches the shop's data (orders, banners...).
+const repoOf = env => env.GITHUB_REPO || "the-whimsical-pig/whimsical-pig";
+const liveBranch = env => env.LIVE_BRANCH || "main";
+const previewBranch = env => env.PREVIEW_BRANCH || "claude/kind-turing-6oczei";
+async function gh(env, method, path, body) {
+  const r = await fetch(`${env.GITHUB_API_BASE || "https://api.github.com"}/repos/${repoOf(env)}${path}`, {
+    method, headers: { "Authorization": `Bearer ${env.GITHUB_TOKEN}`, "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "whimsical-pig-site", ...(body ? { "Content-Type": "application/json" } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  let data = null;
+  try { data = await r.json(); } catch (e) {}
+  return { ok: r.ok, status: r.status, data };
+}
+const ghError = r => `GitHub said ${r.status}${r.data && r.data.message ? ": " + r.data.message : ""}` +
+  (r.status === 401 || r.status === 403 || r.status === 404 ? ". Check the GITHUB_TOKEN secret on the preview Worker (it needs Contents: Read and write on the repository)." : "");
+const commitInfo = c => ({ sha: c.sha, short: c.sha.slice(0, 7), message: String((c.commit || {}).message || "").split("\n")[0].slice(0, 160),
+  date: ((c.commit || {}).committer || {}).date || "" });
+async function versionsInfo(env) {
+  if (!env.GITHUB_TOKEN) return json({ setup: true, repo: repoOf(env) });
+  const enc = encodeURIComponent;
+  const [live, prev, cmp] = await Promise.all([
+    gh(env, "GET", `/commits?sha=${enc(liveBranch(env))}&per_page=12`),
+    gh(env, "GET", `/commits?sha=${enc(previewBranch(env))}&per_page=12`),
+    gh(env, "GET", `/compare/${enc(liveBranch(env))}...${enc(previewBranch(env))}`),
+  ]);
+  for (const r of [live, prev, cmp]) if (!r.ok) return json({ error: ghError(r) }, 502);
+  return json({
+    repo: repoOf(env), liveBranch: liveBranch(env), previewBranch: previewBranch(env),
+    live: live.data.map(commitInfo), preview: prev.data.map(commitInfo),
+    waiting: (cmp.data.commits || []).map(commitInfo).reverse(),     // on preview, not live yet (newest first)
+    liveOnly: cmp.data.behind_by || 0,                               // on live, not on preview
+  }, 200, { "Cache-Control": "no-store" });
+}
+async function branchHead(env, branch) {
+  const r = await gh(env, "GET", `/git/ref/heads/${branch}`);
+  return r.ok ? r.data.object.sha : null;
+}
+// Everything on preview goes live: fast-forward when we can, otherwise a merge commit
+async function goLive(request, env) {
+  if (!env.GITHUB_TOKEN) return json({ error: "Add the GITHUB_TOKEN secret first." }, 400);
+  const cmp = await gh(env, "GET", `/compare/${encodeURIComponent(liveBranch(env))}...${encodeURIComponent(previewBranch(env))}`);
+  if (!cmp.ok) return json({ error: ghError(cmp) }, 502);
+  if (!cmp.data.ahead_by) return json({ ok: true, nothing: true });
+  if (cmp.data.status === "ahead") {
+    const head = await branchHead(env, previewBranch(env));
+    const r = await gh(env, "PATCH", `/git/refs/heads/${liveBranch(env)}`, { sha: head, force: false });
+    if (!r.ok) return json({ error: ghError(r) }, 502);
+    return json({ ok: true, count: cmp.data.ahead_by });
+  }
+  const r = await gh(env, "POST", "/merges", { base: liveBranch(env), head: previewBranch(env),
+    commit_message: `Go live: ${cmp.data.ahead_by} change${cmp.data.ahead_by === 1 ? "" : "s"} from the preview site` });
+  if (r.status === 409) return json({ error: "The live site and the preview both changed the same thing, so this needs a person to merge. Ask Claude to do it." }, 409);
+  if (!r.ok && r.status !== 204) return json({ error: ghError(r) }, 502);
+  return json({ ok: true, count: cmp.data.ahead_by });
+}
+// Put the live site (or the preview) back the way it was at an earlier version. This adds a
+// new version on top that matches the old one exactly, so nothing is lost and it can be undone.
+async function restoreVersion(request, env) {
+  if (!env.GITHUB_TOKEN) return json({ error: "Add the GITHUB_TOKEN secret first." }, 400);
+  const b = await readJson(request);
+  const branch = b.site === "preview" ? previewBranch(env) : liveBranch(env);
+  const sha = String(b.sha || "");
+  if (!/^[0-9a-f]{40}$/.test(sha)) return json({ error: "Pick a version to go back to." }, 400);
+  const [head, old] = await Promise.all([branchHead(env, branch), gh(env, "GET", `/git/commits/${sha}`)]);
+  if (!head || !old.ok) return json({ error: old.ok ? "Couldn't read the site's current version." : ghError(old) }, 502);
+  if (head === sha) return json({ ok: true, nothing: true });
+  const cur = await gh(env, "GET", `/git/commits/${head}`);
+  if (cur.ok && cur.data.tree.sha === old.data.tree.sha) return json({ ok: true, nothing: true });
+  const made = await gh(env, "POST", "/git/commits", {
+    message: `Restore the ${b.site === "preview" ? "preview" : "live"} site to ${sha.slice(0, 7)}: ${String(old.data.message || "").split("\n")[0].slice(0, 100)}`,
+    tree: old.data.tree.sha, parents: [head] });
+  if (!made.ok) return json({ error: ghError(made) }, 502);
+  const r = await gh(env, "PATCH", `/git/refs/heads/${branch}`, { sha: made.data.sha, force: false });
+  if (!r.ok) return json({ error: ghError(r) }, 502);
+  return json({ ok: true, sha: made.data.sha });
+}
+// Preview only: empty the preview's test data (orders, custom orders, banners, photos, visits)
+async function resetPreviewData(env) {
+  if (!env.PREVIEW) return json({ error: "Only the preview site can be reset." }, 403);
+  await env.DB.batch([
+    "DELETE FROM request_file_parts", "DELETE FROM request_files", "DELETE FROM requests", "DELETE FROM shop_orders",
+    "DELETE FROM site_photos", "DELETE FROM page_views", "DELETE FROM kv WHERE key NOT IN ('catalog')",
+  ].map(sql => env.DB.prepare(sql)));
+  return json({ ok: true });
 }
 
 // ---------------------------------------------------------------- cleanup & backup

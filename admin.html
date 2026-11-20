@@ -207,6 +207,17 @@
   #social-canvas { max-width: 100%; max-height: 66vh; width: auto; height: auto; border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
   .sm-preview .btn { justify-self: start; }
   @media (max-width: 860px) { .sm-grid { grid-template-columns: 1fr; } }
+  /* versions */
+  .ver-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-top: 14px; }
+  .ver-card h3 { font-size: 1.3rem; margin-bottom: 6px; }
+  .ver-list { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 6px; }
+  .ver { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 9px 12px; border: 1px solid var(--hair); border-radius: 10px; background: var(--bg); }
+  .ver.current { border-color: var(--pink); }
+  .ver-msg { font-size: 0.92rem; }
+  .ver-meta { grid-column: 1; color: var(--muted); font-size: 0.78rem; }
+  .ver .link-btn, .ver .tag { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+  .count-pill { display: inline-block; min-width: 24px; padding: 1px 8px; border-radius: 999px; background: var(--pink); color: #000; font: 700 0.8rem var(--sans); text-align: center; }
+  .steps-list { margin: 10px 0 0 20px; display: grid; gap: 8px; }
   /* parts of a tab, one at a time */
   .pills { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin-bottom: 22px; border: 1px solid var(--rule); border-radius: 999px; background: var(--bg-2); }
   .pills button { padding: 9px 18px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 0.78rem var(--sans); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
@@ -292,6 +303,7 @@
       <button role="tab" aria-selected="false" data-tab="photos">Site Photos</button>
       <button role="tab" aria-selected="false" data-tab="social">Facebook Posts</button>
       <button role="tab" aria-selected="false" data-tab="requests">Order Backup <span class="warn" id="n-requests"></span></button>
+      <button role="tab" aria-selected="false" data-tab="versions" hidden>Versions</button>
       <button role="tab" aria-selected="false" data-tab="setup">Setup <span class="warn" id="n-setup"></span></button>
     </div>
 
@@ -592,6 +604,24 @@
       </div>
     </dialog>
 
+    <!-- Versions: preview site only -->
+    <section id="tab-versions" hidden>
+      <div class="toolbar">
+        <div>
+          <h2>Versions</h2>
+          <p class="hint">Changes show up here on the preview site first. When they look right, press Go Live. If a change causes trouble, put either site back the way it was.
+            This only changes the website's pages and features, never orders, banners, photos or other things you've saved.</p>
+        </div>
+        <div class="tools"><button class="btn ghost sm" id="ver-refresh" type="button">Refresh</button></div>
+      </div>
+      <p class="hint" id="ver-msg" role="status"></p>
+      <div id="versions"></div>
+
+      <div class="sec-head"><h3 class="sub-h">Preview test data</h3></div>
+      <p class="hint">Empties this preview site's test orders, custom orders, banners, reviews, photo changes and visit counts, so you can test from a clean start. The live site isn't touched.</p>
+      <button class="btn ghost sm" id="preview-reset" type="button">Reset Preview Data</button>
+    </section>
+
     <!-- Setup checklist -->
     <section id="tab-setup" hidden>
       <div class="toolbar">
@@ -672,7 +702,7 @@
 
   // ---------- tabs ----------
   const loaders = { requests: () => loadRequests(), orders: () => loadOrders(), items: () => loadItems(),
-                    banners: () => loadBanners().then(loadThemes).then(() => { reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
+                    versions: () => loadVersions(), banners: () => loadBanners().then(loadThemes).then(() => { reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-tab]").forEach(o => {
       o.setAttribute("aria-selected", o === b);
@@ -1196,6 +1226,7 @@
     catch (err) { $("checks").innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
     dashboard = data.dashboard;
     shopvoxOn = !!data.shopvox;
+    document.querySelector('[data-tab="versions"]').hidden = !data.preview;
     if (requests.length) loadRequests();
     const bad = data.checks.filter(c => !c.ok).length;
     $("n-setup").textContent = bad ? "●" : "";
@@ -1513,6 +1544,70 @@
       site.reviews = r.reviews; reviews = r.reviews.map(x => ({ ...x }));
       drawReviews(); $("reviews-msg").textContent = reviews.length ? "Saved. The home page shows them within a minute." : "Saved. No reviews, so the section is hidden.";
     } catch (err) { $("reviews-msg").textContent = err.message; }
+  };
+
+  // ---------- versions (preview site only) ----------
+  const ago = d => { if (!d) return ""; const m = Math.round((Date.now() - new Date(d)) / 60000);
+    return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : new Date(d).toLocaleDateString([], { month: "short", day: "numeric" }); };
+  let ver = null;
+  async function loadVersions() {
+    $("versions").innerHTML = '<p class="hint">Loading…</p>';
+    try { ver = await api("/api/admin/versions"); } catch (err) { $("versions").innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
+    if (ver.setup) {
+      $("versions").innerHTML = `<div class="card"><h3>One-time setup</h3>
+        <ol class="steps-list">
+          <li>On GitHub, open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Settings → Developer settings → Fine-grained tokens → Generate new token</a>.</li>
+          <li>Name it <b>whimsical-pig preview</b>. Resource owner: <b>the-whimsical-pig</b>. Repository access: <b>Only select repositories → ${esc(ver.repo)}</b>.</li>
+          <li>Permissions → Repository permissions → <b>Contents: Read and write</b>. Generate, and copy the token.</li>
+          <li>In Cloudflare: the <b>whimsical-pig-preview</b> Worker → Settings → Variables and Secrets → Add → type <b>Secret</b>, name <b>GITHUB_TOKEN</b>, paste the token, Save.</li>
+          <li>Come back here and press Refresh.</li>
+        </ol></div>`;
+      return;
+    }
+    const row = (c, site, current) => `<li class="ver${current ? " current" : ""}"><span class="ver-msg">${esc(c.message)}</span>
+      <span class="ver-meta">${esc(c.short)} · ${esc(ago(c.date))}</span>
+      ${current ? '<span class="tag paid">Showing now</span>' : `<button type="button" class="link-btn" data-restore="${c.sha}" data-site="${site}">Go back to this</button>`}</li>`;
+    $("versions").innerHTML = `
+      <div class="card ver-card">
+        <h3>Waiting to go live <span class="count-pill">${ver.waiting.length}</span></h3>
+        ${ver.waiting.length ? `<ul class="ver-list">${ver.waiting.map(c => `<li class="ver"><span class="ver-msg">${esc(c.message)}</span><span class="ver-meta">${esc(c.short)} · ${esc(ago(c.date))}</span></li>`).join("")}</ul>
+          <button class="btn sm" id="go-live" type="button">Go Live</button>
+          <p class="hint">Puts these on the live site. It updates within a couple of minutes.</p>`
+          : '<p class="hint">Nothing waiting: the preview and the live site match.</p>'}
+        ${ver.liveOnly ? `<p class="hint">The live site has ${ver.liveOnly} change${ver.liveOnly === 1 ? "" : "s"} the preview doesn't. Ask Claude to bring the preview up to date.</p>` : ""}
+      </div>
+      <div class="ver-cols">
+        <div class="card ver-card"><h3>Live site</h3><p class="hint">Newest first. “Go back to this” puts the live site back the way it was then; you can undo it the same way.</p>
+          <ul class="ver-list">${ver.live.map((c, i) => row(c, "live", i === 0)).join("")}</ul></div>
+        <div class="card ver-card"><h3>Preview site</h3><p class="hint">Undo a change on the preview before it ever goes live.</p>
+          <ul class="ver-list">${ver.preview.map((c, i) => row(c, "preview", i === 0)).join("")}</ul></div>
+      </div>`;
+  }
+  $("ver-refresh").onclick = loadVersions;
+  $("versions").addEventListener("click", async e => {
+    if (e.target.id === "go-live") {
+      if (!confirm(`Put ${ver.waiting.length} change${ver.waiting.length === 1 ? "" : "s"} on the live site?`)) return;
+      e.target.disabled = true; $("ver-msg").textContent = "Going live…";
+      try { const r = await send("/api/admin/versions/go-live", "POST", {});
+        $("ver-msg").textContent = r.nothing ? "Nothing to put live." : "Done. The live site updates in a couple of minutes."; }
+      catch (err) { $("ver-msg").textContent = err.message; }
+      return loadVersions();
+    }
+    const sha = e.target.dataset.restore;
+    if (!sha) return;
+    const site = e.target.dataset.site;
+    const c = (site === "live" ? ver.live : ver.preview).find(x => x.sha === sha);
+    if (!confirm(`Put the ${site === "live" ? "LIVE" : "preview"} site back to how it was at:\n\n“${c.message}”?\n\nYou can undo this the same way.`)) return;
+    $("ver-msg").textContent = "Working…";
+    try { const r = await send("/api/admin/versions/restore", "POST", { site, sha });
+      $("ver-msg").textContent = r.nothing ? "It's already like that." : `Done. The ${site} site updates in a couple of minutes.`; }
+    catch (err) { $("ver-msg").textContent = err.message; }
+    loadVersions();
+  });
+  $("preview-reset").onclick = async () => {
+    if (!confirm("Empty this preview site's test data? The live site isn't touched.")) return;
+    try { await send("/api/admin/preview-reset", "POST", {}); freshSite(); $("ver-msg").textContent = "Preview data cleared."; loadRequests(); loadOrders(); }
+    catch (err) { $("ver-msg").textContent = err.message; }
   };
 
   // ---------- website visits ----------
