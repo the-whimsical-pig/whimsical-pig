@@ -382,6 +382,7 @@
     </div>
 
     <form id="order" novalidate>
+      <input type="hidden" name="plan_note">
       <!-- 1: order type -->
       <section class="panel" data-step="0">
         <h2>What are we making?</h2>
@@ -845,6 +846,7 @@
     sections.push(["Order", [
       ["Order type", t ? t.title : ""],
       ["Starting point", valueOf("example")],
+      ["Shadow box plan", valueOf("plan_note") ? valueOf("plan_note") + " (picture attached)" : ""],
     ]]);
     if (t) sections.push([t.title + " details", t.questions
       .filter(q => q.type !== "note")
@@ -1299,6 +1301,30 @@
     form.prepend(n);
   }
 
+  // A plan from the Shadow Box Planner (planner.html?…): its picture joins the photos,
+  // its list goes in the order, and the matching answers are filled in
+  async function applyPlan() {
+    let p = null;
+    try { p = JSON.parse(localStorage.getItem("whimsicalpig-plan-order") || "null"); } catch (e) {}
+    if (!p) return;
+    const ex = form.querySelector('input[name="example"][value="Shadow Box"]');
+    if (ex) ex.checked = true;
+    form.elements.plan_note.value = p.text || "";
+    for (const v of p.items || []) { const c = form.querySelector(`[name="q_items"][value="${CSS.escape(v)}"]`); if (c) c.checked = true; }
+    if (form.elements.q_frame && !form.elements.q_frame.value) form.elements.q_frame.value = p.frame || "";
+    try {
+      const db = await photoDB(), tx = db.transaction("files", "readwrite"), store = tx.objectStore("files");
+      const got = await new Promise(ok => { const r = store.get("plan"); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); });
+      store.delete("plan"); await txDone(tx); db.close();
+      if (Array.isArray(got)) { files = files.filter(f => !/^shadow-box-plan\./.test(f.name)); addFiles(got.filter(f => f instanceof Blob)); }
+    } catch (e) {}
+    localStorage.removeItem("whimsicalpig-plan-order");
+    // they already made a plan, so drop the "try the planner" note
+    form.querySelectorAll(".note").forEach(n => { if (n.querySelector('a[href="planner.html"]')) n.remove(); });
+    applyConditions(); saveDraft();
+    go(2);
+  }
+
   const draft = restoreDraft();
   // Links like order.html?type=shadow-box open with that order type already picked
   const legacy = { "shadow-box": "military", "flag-case": "military" };
@@ -1320,6 +1346,10 @@
   } else {
     clearPhotos();
     go(0);
+  }
+  if (new URLSearchParams(location.search).get("plan")) {
+    // wait for any saved photos to load first, so the plan is added to them
+    (draft ? loadPhotos().then(list => { if (list.length) { files = list; drawThumbs(); } }) : Promise.resolve()).then(applyPlan);
   }
 </script>
 </body>

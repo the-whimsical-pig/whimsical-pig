@@ -359,7 +359,7 @@ function buildFooter() {
       </div>
       <div class="fine">
         <span>&copy; ${new Date().getFullYear()} The Whimsical Pig · Made with a little whimsy in Watertown, New York</span>
-        <span><a href="story.html">Our Story</a> · <a href="work.html">Our Work</a> · <a href="design.html">Design &amp; Merch</a> · <a href="shop.html">Shop</a> · <a href="order.html">Start an Order</a> · <a href="help.html">Help &amp; FAQ</a> · <a href="visit.html">Visit</a> · <a href="fort-drum.html">Fort Drum</a> · <a href="guidons.html">Guidons</a> · <a href="snowshoes.html">Snowshoes</a> · <a href="plaques.html">Plaques</a></span>
+        <span><a href="story.html">Our Story</a> · <a href="work.html">Our Work</a> · <a href="design.html">Design &amp; Merch</a> · <a href="shop.html">Shop</a> · <a href="order.html">Start an Order</a> · <a href="help.html">Help &amp; FAQ</a> · <a href="visit.html">Visit</a> · <a href="fort-drum.html">Fort Drum</a> · <a href="guidons.html">Guidons</a> · <a href="snowshoes.html">Snowshoes</a> · <a href="plaques.html">Plaques</a> · <a href="planner.html">Shadow Box Planner</a></span>
       </div>
     </div>`;
 }

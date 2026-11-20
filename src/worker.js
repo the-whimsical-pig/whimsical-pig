@@ -1837,7 +1837,7 @@ async function orderViewPage(env, id, key, origin) {
 // The site sends { p: page, r: where they came from } once per page view. Only the
 // shop's own pages count; bots and the admin page don't.
 const VISIT_PAGES = new Set(["/", "/story", "/work", "/design", "/shop", "/order", "/help", "/visit",
-  "/fort-drum", "/guidons", "/snowshoes", "/plaques", "/order#started", "/order#sent"]);
+  "/fort-drum", "/guidons", "/snowshoes", "/plaques", "/planner", "/order#started", "/order#sent"]);
 function visitSource(ref, host) {
   let h = "";
   try { h = new URL(ref).hostname.replace(/^www\./, ""); } catch (e) { return "direct"; }
@@ -2024,7 +2024,7 @@ async function serveSharedFile(env, id, key) {
 // Built for whatever address the site is on (workers.dev now, the shop's own domain later)
 
 const PUBLIC_PAGES = ["", "story.html", "work.html", "design.html", "shop.html", "order.html", "help.html", "visit.html",
-  "fort-drum.html", "guidons.html", "snowshoes.html", "plaques.html"];
+  "fort-drum.html", "guidons.html", "snowshoes.html", "plaques.html", "planner.html"];
 function robots(url, env) {
   // The preview copy stays out of Google
   if (env.PREVIEW) return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });

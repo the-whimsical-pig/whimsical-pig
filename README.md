@@ -261,3 +261,11 @@ A second copy of the site, **whimsical-pig-preview**, built from the `claude/kin
 4. The preview lives at https://whimsical-pig-preview.jeepboy9478.workers.dev (set up on the developer's Cloudflare account, separate from the live site).
 
 **How changes flow:** new work is pushed to `claude/kind-turing-6oczei` first → it appears on the preview site → once it looks right, it's merged into `main` → the live site updates.
+
+### Versions tab (preview site only)
+On the preview site's admin page, **Versions** shows what's waiting to go live, with **Go Live**, and lets you put the live site or the preview **back to an earlier version** (this adds a new version that matches the old one, so it can be undone the same way). It only changes the website's code, never orders, banners, photos or other saved things. **Reset Preview Data** empties the preview's own test data.
+
+One-time setup: a GitHub fine-grained token for `the-whimsical-pig/whimsical-pig` with **Contents: Read and write**, saved as the secret `GITHUB_TOKEN` on the preview Worker (the tab walks you through it).
+
+## Shadow Box Planner (`planner.html`, `planner.js`)
+Customers pick a box size, background and frame, add a folded flag, medals, ribbon rack, rank, badges, patches, coins, dog tags, photos (their own), an engraved plate, a guidon, a certificate or words, and drag them into place. Items are drawn at true size for the box. The plan stays in their browser. **Use This Plan in My Order** opens Start an Order with Military Framing → Shadow Box picked, the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (size, colors, every item and the plate wording) in the order.

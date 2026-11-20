@@ -1612,7 +1612,7 @@
 
   // ---------- website visits ----------
   const PAGE_LABELS = { "/": "Home", "/story": "Our Story", "/work": "Our Work", "/design": "Design & Merch", "/shop": "Shop", "/order": "Start an Order",
-    "/help": "Help", "/visit": "Visit", "/fort-drum": "Fort Drum", "/guidons": "Guidons", "/snowshoes": "Snowshoes", "/plaques": "Plaques" };
+    "/help": "Help", "/visit": "Visit", "/fort-drum": "Fort Drum", "/guidons": "Guidons", "/snowshoes": "Snowshoes", "/plaques": "Plaques", "/planner": "Shadow Box Planner" };
   async function loadVisits() {
     let v;
     try { v = await api("/api/admin/visits"); } catch (err) { $("visits").innerHTML = `<p class="hint">${esc(err.message)}</p>`; return; }

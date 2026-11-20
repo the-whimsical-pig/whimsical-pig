@@ -66,6 +66,9 @@ window.ORDER = {
         "Company-specific coins or patches: you'll need to supply these",
       ],
       questions: [
+        { id: "planner_note", type: "note", showIf: { q: "example", is: "Shadow Box" },
+          text: "Want to sketch your layout first? Our planner lets you place your flag, medals, rank and photos in the box, then sends the picture with this order.",
+          link: { href: "planner.html", label: "Open the Shadow Box Planner →" } },
         { id: "snowshoe_size", label: "Snowshoe size", type: "radio", showIf: { q: "example", is: "Snowshoe" },
           options: ["Mini (5 × 15 in)", "Medium (9 × 29 in)", "Large (11 × 36 in)", "X-Large (12 × 42 in)", "Not sure"] },
         { id: "unit", label: "What company or unit is this for?", type: "text", required: true,

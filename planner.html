@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadow Box Planner — Design Your Military Shadow Box | The Whimsical Pig</title>
+<meta name="description" content="Lay out your military shadow box online: pick the size, background and frame, add your flag, medals, rank, photos and an engraved plate, then send the plan with your order. The Whimsical Pig, Watertown NY.">
+<meta property="og:title" content="Shadow Box Planner — The Whimsical Pig">
+<meta property="og:description" content="Design your shadow box online, then send it with your order.">
+<meta property="og:image" content="images/work/military-shadow-boxes_08.webp">
+<meta name="theme-color" content="#141112">
+<link rel="icon" href="images/favicon.png">
+<link rel="preload" href="fonts/lato-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+<style>
+  .planner { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); gap: 28px; align-items: start; }
+  .pl-stage { position: sticky; top: 90px; }
+  .pl-canvas { background: radial-gradient(circle at 50% 40%, #3a2f2a, #1b1514 70%); border: 1px solid var(--rule); border-radius: 18px; padding: 22px; display: flex; justify-content: center; }
+  #pl-svg { width: 100%; max-height: 74vh; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
+  #pl-svg .pl-item { cursor: grab; }
+  .pl-bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
+  .pl-panel { display: grid; gap: 14px; }
+  .pl-card { padding: 18px 20px; background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; }
+  .pl-card h2, .pl-card h3 { font-size: 1.35rem; margin-bottom: 10px; }
+  .pl-card .step { font: 700 0.7rem var(--sans); letter-spacing: 0.2em; text-transform: uppercase; color: var(--pink); display: block; margin-bottom: 2px; }
+  .pl-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  .pl-card select, .pl-card input:not([type=checkbox]):not([type=range]):not([type=color]):not([type=file]), .pl-card textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 8px; margin: 6px 0 12px; }
+  .swatch { position: relative; height: 48px; border: 2px solid transparent; border-radius: 10px; cursor: pointer; padding: 0; }
+  .swatch span { position: absolute; inset: auto 0 -1px 0; font: 700 0.6rem var(--sans); color: #fff; text-shadow: 0 1px 2px #000; padding: 2px; line-height: 1.1; }
+  .swatch.on { border-color: var(--pink); box-shadow: 0 0 0 2px var(--pink); }
+  .pl-add { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pl-add .btn { padding: 8px 12px; font-size: 0.7rem; }
+  .pl-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .pl-fields .fld { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 700; }
+  .pl-fields .fld.wide { grid-column: 1 / -1; }
+  .pl-fields .fld.check { display: flex; align-items: center; gap: 8px; }
+  .pl-fields input[type=range] { width: 100%; accent-color: var(--pink); }
+  .pl-fields input[type=color] { width: 100%; height: 38px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
+  .file-btn { justify-self: start; cursor: pointer; }
+  .pl-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .pl-acts .del { color: #e59a90; border-color: #e59a90; }
+  #pl-summary { color: var(--muted); font-size: 0.92rem; }
+  .pl-finish .btn { width: 100%; margin-top: 8px; }
+  .hint { color: var(--muted); font-size: 0.88rem; }
+  #pl-msg { color: var(--pink); min-height: 1.2em; }
+  @media (max-width: 900px) {
+    .planner { grid-template-columns: 1fr; }
+    .pl-stage { position: static; }
+    #pl-svg { max-height: 60vh; }
+  }
+</style>
+</head>
+<body data-page="planner">
+
+<header id="site-header"></header>
+<script src="settings.js"></script>
+<script src="site.js"></script>
+
+<main>
+  <section class="page-intro blush">
+    <div class="wrap">
+      <img class="flying-pig" src="images/flying-pig.webp" alt="">
+      <span class="eyebrow">Plan it your way</span>
+      <h1>Shadow Box <em>Planner</em></h1>
+      <div class="rule-orn" aria-hidden="true"><span></span></div>
+      <p>Pick a size, background and frame, add your flag, medals, rank and photos, and drag everything where you'd like it. Then send the plan with your order. It's a starting point: we'll fine-tune the layout with you before we build.</p>
+    </div>
+    <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 120 60, 240 0, 360 30 S 600 60, 720 30 S 960 0, 1080 30 S 1320 60, 1440 30 V60 H0 Z" fill="#141112"/></svg>
+  </section>
+
+  <section class="block">
+    <div class="wrap planner">
+      <div class="pl-stage">
+        <div class="pl-canvas"><svg id="pl-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Your shadow box plan"></svg></div>
+        <div class="pl-bar">
+          <button class="btn ghost sm" id="pl-undo" type="button" disabled>Undo</button>
+          <button class="btn ghost sm" id="pl-clear" type="button">Start Over</button>
+        </div>
+        <p class="hint" style="text-align:center;margin-top:8px">Items are shown at their real size for the box you pick. Drag to move; tap an item to change it.</p>
+      </div>
+
+      <div class="pl-panel">
+        <div class="pl-card">
+          <span class="step">Step 1</span><h2>The box</h2>
+          <div class="pl-row">
+            <label style="flex:1 1 140px">Size (inches)<select id="pl-size"></select></label>
+            <label><input type="checkbox" id="pl-wide"> Wide (landscape)</label>
+          </div>
+          <p style="margin-top:12px;font-weight:700;font-size:0.85rem">Background</p>
+          <div class="swatches" id="pl-bgs"></div>
+          <p style="font-weight:700;font-size:0.85rem">Frame</p>
+          <div class="swatches" id="pl-frames"></div>
+        </div>
+
+        <div class="pl-card">
+          <span class="step">Step 2</span><h2>Add your items</h2>
+          <div class="pl-add" id="pl-add"></div>
+        </div>
+
+        <div class="pl-card" id="pl-item"></div>
+
+        <div class="pl-card pl-finish">
+          <span class="step">Step 3</span><h2>Send it with your order</h2>
+          <p id="pl-summary"></p>
+          <button class="btn" id="pl-order" type="button">Use This Plan in My Order</button>
+          <button class="btn ghost" id="pl-download" type="button">Download Picture</button>
+          <p id="pl-msg" role="status"></p>
+          <p class="hint">Your plan stays in this browser, so you can come back to it later.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+<script src="planner.js"></script>
+</body>
+</html>
