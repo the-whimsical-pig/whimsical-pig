@@ -176,6 +176,15 @@
   .chips label, .tick { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92rem; }
   .chips label { padding: 6px 10px; border: 1px solid var(--rule); border-radius: 999px; }
   .chips input, .tick input { accent-color: var(--pink); }
+  .pl-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 10px 0; }
+  .pl-admin .card { padding: 16px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 12px; border: 1px solid var(--rule); border-radius: 999px; font-size: 0.9rem; }
+  .chip i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); }
+  .chip button { border: 0; background: none; color: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 6px; opacity: .7; }
+  .chip button:hover { opacity: 1; color: #e59a90; }
+  .add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .add-row input:not([type=color]) { flex: 1 1 80px; min-width: 0; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; }
+  .add-row input[type=color] { width: 44px; height: 38px; padding: 2px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
   .form-msg { min-height: 1.2em; color: #ff8f8a; font-size: 0.9rem; }
   .dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
 
@@ -302,6 +311,7 @@
       <button role="tab" aria-selected="false" data-tab="banners">Banners &amp; Reviews</button>
       <button role="tab" aria-selected="false" data-tab="photos">Site Photos</button>
       <button role="tab" aria-selected="false" data-tab="social">Facebook Posts</button>
+      <button role="tab" aria-selected="false" data-tab="planner">Shadow Box Planner</button>
       <button role="tab" aria-selected="false" data-tab="requests">Order Backup <span class="warn" id="n-requests"></span></button>
       <button role="tab" aria-selected="false" data-tab="versions" hidden>Versions</button>
       <button role="tab" aria-selected="false" data-tab="setup">Setup <span class="warn" id="n-setup"></span></button>
@@ -604,6 +614,35 @@
       </div>
     </dialog>
 
+    <!-- Choices offered in the Shadow Box Planner -->
+    <section id="tab-planner" hidden>
+      <div class="toolbar">
+        <div>
+          <h2>Shadow Box Planner</h2>
+          <p class="hint">Choose the box sizes, backgrounds and frames customers can pick in the <a href="planner.html" target="_blank" rel="noopener">Shadow Box Planner</a>. Remove ones you don't carry, add new ones, then Save. Changes show within a minute.</p>
+        </div>
+        <div class="tools">
+          <button class="btn ghost sm" id="pl-reset" type="button">Back to Our Usual List</button>
+          <button class="btn sm" id="pl-save" type="button">Save Planner Choices</button>
+        </div>
+      </div>
+      <p class="hint" id="pl-admin-msg" role="status"></p>
+      <div class="pl-admin">
+        <div class="card"><h3 class="sub-h">Box sizes (inches)</h3>
+          <div class="chips" id="pl-sizes"></div>
+          <div class="add-row"><input id="pl-size-w" type="number" min="4" max="60" step="0.5" placeholder="Width" aria-label="Width in inches"> ×
+            <input id="pl-size-h" type="number" min="4" max="60" step="0.5" placeholder="Height" aria-label="Height in inches">
+            <button class="btn ghost sm" id="pl-size-add" type="button">+ Add Size</button></div></div>
+        <div class="card"><h3 class="sub-h">Backgrounds</h3><div class="chips" id="pl-bgs"></div>
+          <div class="add-row"><input id="pl-bg-name" maxlength="30" placeholder="Name, e.g. Olive suede"><input id="pl-bg-color" type="color" value="#3b5323" aria-label="Color">
+            <button class="btn ghost sm" id="pl-bg-add" type="button">+ Add</button></div></div>
+        <div class="card"><h3 class="sub-h">Frames</h3><div class="chips" id="pl-frames"></div>
+          <div class="add-row"><input id="pl-fr-name" maxlength="30" placeholder="Name, e.g. Barnwood"><input id="pl-fr-color" type="color" value="#6d5a48" aria-label="Color">
+            <button class="btn ghost sm" id="pl-fr-add" type="button">+ Add</button></div></div>
+      </div>
+      <p class="hint">The color is only for the drawing, so customers get the idea. Pick the closest one.</p>
+    </section>
+
     <!-- Versions: preview site only -->
     <section id="tab-versions" hidden>
       <div class="toolbar">
@@ -702,7 +741,7 @@
 
   // ---------- tabs ----------
   const loaders = { requests: () => loadRequests(), orders: () => loadOrders(), items: () => loadItems(),
-                    versions: () => loadVersions(), banners: () => loadBanners().then(loadThemes).then(() => { reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
+                    versions: () => loadVersions(), banners: () => loadBanners().then(loadThemes).then(() => { reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup(), planner: () => loadPlanner() };
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-tab]").forEach(o => {
       o.setAttribute("aria-selected", o === b);
@@ -1339,7 +1378,7 @@
     return site;
   }
   const saveSite = body => send("/api/admin/site", "PUT", body).then(r => {
-    freshSite(); site.banners = r.banners; site.photos = r.photos; site.themes = r.themes; site.activeTheme = r.activeTheme; site.reviews = r.reviews; return r;
+    freshSite(); site.banners = r.banners; site.photos = r.photos; site.themes = r.themes; site.activeTheme = r.activeTheme; site.reviews = r.reviews; site.planner = r.planner; return r;
   });
 
   // ---------- banners ----------
@@ -1544,6 +1583,50 @@
       site.reviews = r.reviews; reviews = r.reviews.map(x => ({ ...x }));
       drawReviews(); $("reviews-msg").textContent = reviews.length ? "Saved. The home page shows them within a minute." : "Saved. No reviews, so the section is hidden.";
     } catch (err) { $("reviews-msg").textContent = err.message; }
+  };
+
+  // ---------- Shadow Box Planner choices ----------
+  const PLANNER_USUAL = {
+    sizes: ["11x14", "12x16", "14x18", "16x20", "18x24", "20x24", "22x28", "24x30", "24x36"],
+    backgrounds: [["Black velvet", "#1c1614"], ["Navy", "#1d2847"], ["Royal blue", "#1f4596"], ["Red", "#7d1c1c"], ["Forest green", "#1f4a2c"],
+      ["Maroon", "#5a1d28"], ["Gray suede", "#555555"], ["Cream linen", "#ece5d3"], ["White suede", "#f3f2ed"]].map(([name, color]) => ({ name, color })),
+    frames: [["Dark walnut", "#3b2416"], ["Black", "#161616"], ["Cherry", "#6b2318"], ["Oak", "#9c7040"], ["Gold", "#b8913a"], ["Silver", "#a3a8ae"]].map(([name, color]) => ({ name, color })),
+  };
+  let plOpts = null;
+  const plDirty = () => { $("pl-admin-msg").textContent = "Press Save Planner Choices to keep your changes."; };
+  async function loadPlanner() {
+    try { await loadSite(); } catch (err) { $("pl-admin-msg").textContent = err.message; return; }
+    plOpts = JSON.parse(JSON.stringify(site.planner || PLANNER_USUAL)); drawPlanner();
+  }
+  function drawPlanner() {
+    const sorted = [...plOpts.sizes].sort((a, b) => a.split("x").reduce((n, v) => n * v, 1) - b.split("x").reduce((n, v) => n * v, 1));
+    plOpts.sizes = sorted;
+    $("pl-sizes").innerHTML = sorted.map((z, i) => `<span class="chip">${esc(z.replace("x", " × "))}<button type="button" data-del="sizes" data-i="${i}" aria-label="Remove ${esc(z)}">×</button></span>`).join("");
+    for (const [box, key] of [["pl-bgs", "backgrounds"], ["pl-frames", "frames"]])
+      $(box).innerHTML = plOpts[key].map((o, i) => `<span class="chip"><i style="background:${esc(o.color)}"></i>${esc(o.name)}<button type="button" data-del="${key}" data-i="${i}" aria-label="Remove ${esc(o.name)}">×</button></span>`).join("");
+  }
+  $("tab-planner").addEventListener("click", e => {
+    const d = e.target.dataset; if (!d.del) return;
+    if (plOpts[d.del].length < 2) { $("pl-admin-msg").textContent = "Keep at least one."; return; }
+    plOpts[d.del].splice(+d.i, 1); drawPlanner(); plDirty();
+  });
+  $("pl-size-add").onclick = () => {
+    const w = +$("pl-size-w").value, h = +$("pl-size-h").value;
+    if (!(w >= 4 && w <= 60 && h >= 4 && h <= 60)) { $("pl-admin-msg").textContent = "Type a width and height between 4 and 60 inches."; return; }
+    const z = `${Math.min(w, h)}x${Math.max(w, h)}`;
+    if (!plOpts.sizes.includes(z)) plOpts.sizes.push(z);
+    $("pl-size-w").value = $("pl-size-h").value = ""; drawPlanner(); plDirty();
+  };
+  for (const [btn, name, color, key] of [["pl-bg-add", "pl-bg-name", "pl-bg-color", "backgrounds"], ["pl-fr-add", "pl-fr-name", "pl-fr-color", "frames"]])
+    $(btn).onclick = () => {
+      const n = $(name).value.trim(); if (!n) { $("pl-admin-msg").textContent = "Type a name first."; return; }
+      if (plOpts[key].some(o => o.name.toLowerCase() === n.toLowerCase())) { $("pl-admin-msg").textContent = "That one's already on the list."; return; }
+      plOpts[key].push({ name: n, color: $(color).value }); $(name).value = ""; drawPlanner(); plDirty();
+    };
+  $("pl-reset").onclick = () => { plOpts = JSON.parse(JSON.stringify(PLANNER_USUAL)); drawPlanner(); plDirty(); };
+  $("pl-save").onclick = async () => {
+    try { const r = await saveSite({ planner: plOpts }); plOpts = JSON.parse(JSON.stringify(r.planner)); drawPlanner(); $("pl-admin-msg").textContent = "Saved. The planner shows these within a minute."; }
+    catch (err) { $("pl-admin-msg").textContent = err.message; }
   };
 
   // ---------- versions (preview site only) ----------

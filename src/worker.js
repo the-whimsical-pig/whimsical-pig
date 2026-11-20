@@ -1344,7 +1344,7 @@ const STARTING_REVIEWS = [
 async function siteData(env) {
   const row = await kvGet(env, "site");
   const v = (row && row.value) || {};
-  return { banners: v.banners || [], themes: v.themes || [], reviews: v.reviews || STARTING_REVIEWS,
+  return { banners: v.banners || [], themes: v.themes || [], reviews: v.reviews || STARTING_REVIEWS, planner: v.planner || null,
            photos: { hidden: [], captions: {}, replace: {}, groups: {}, ...(v.photos || {}) } };
 }
 
@@ -1372,6 +1372,7 @@ async function publicSite(env) {
     replace: { ...site.photos.replace, ...(theme ? theme.photos : {}) },
     theme: theme ? theme.name : "",
     reviews: site.reviews,
+    ...(site.planner ? { planner: site.planner } : {}),
     ...(env.PREVIEW ? { preview: true } : {}),
     added: results.map(r => ({ id: r.id, group: r.grp, caption: r.caption })),
   }, 200, { "Cache-Control": "public, max-age=60" });
@@ -1440,6 +1441,21 @@ async function saveSite(request, env) {
   if (b.reviews !== undefined) {
     if (!Array.isArray(b.reviews) || b.reviews.length > 12) return json({ error: "Up to 12 reviews." }, 400);
     site.reviews = b.reviews.map(r => ({ text: cleanText(r && r.text, 600), name: cleanText(r && r.name, 60) })).filter(r => r.text);
+  }
+  if (b.planner !== undefined) {
+    // Shadow Box Planner choices: box sizes ("16x20"), backgrounds and frames ({ name, color })
+    if (b.planner === null) site.planner = null;
+    else {
+      const p = b.planner || {}, color = c => /^#[0-9a-f]{6}$/i.test(c || "") ? c.toLowerCase() : "";
+      const sizes = [...new Set((Array.isArray(p.sizes) ? p.sizes : []).map(z => String(z || "").replace(/\s/g, "").toLowerCase().replace("×", "x"))
+        .filter(z => /^\d{1,2}(\.\d)?x\d{1,2}(\.\d)?$/.test(z) && z.split("x").every(n => +n >= 4 && +n <= 60)))];
+      const named = (list, what) => (Array.isArray(list) ? list : []).map(o => ({ name: cleanText(o && o.name, 30), color: color(o && o.color) }))
+        .filter((o, i, all) => o.name && o.color && all.findIndex(x => x.name === o.name) === i);
+      const backgrounds = named(p.backgrounds), frames = named(p.frames);
+      if (!sizes.length || !backgrounds.length || !frames.length) return json({ error: "Keep at least one size, one background and one frame." }, 400);
+      if (sizes.length > 30 || backgrounds.length > 30 || frames.length > 30) return json({ error: "Up to 30 of each." }, 400);
+      site.planner = { sizes, backgrounds, frames };
+    }
   }
   if (b.themes !== undefined) {
     if (!Array.isArray(b.themes) || b.themes.length > 20) return json({ error: "Up to 20 holiday looks." }, 400);

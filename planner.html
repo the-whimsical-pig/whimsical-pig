@@ -14,42 +14,65 @@
 <link rel="preload" href="fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="site.css">
 <style>
-  .planner { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); gap: 28px; align-items: start; }
-  .pl-stage { position: sticky; top: 90px; }
+  .planner { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); gap: 28px; align-items: start; }
+  .pl-stage { position: sticky; top: 92px; }
+  #pl-step { scroll-margin-top: 100px; }
   .pl-canvas { background: radial-gradient(circle at 50% 40%, #3a2f2a, #1b1514 70%); border: 1px solid var(--rule); border-radius: 18px; padding: 22px; display: flex; justify-content: center; }
-  #pl-svg { width: 100%; max-height: 74vh; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
+  #pl-svg { width: 100%; max-height: 72vh; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
   #pl-svg .pl-item { cursor: grab; }
   .pl-bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
-  .pl-panel { display: grid; gap: 14px; }
-  .pl-card { padding: 18px 20px; background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; }
-  .pl-card h2, .pl-card h3 { font-size: 1.35rem; margin-bottom: 10px; }
-  .pl-card .step { font: 700 0.7rem var(--sans); letter-spacing: 0.2em; text-transform: uppercase; color: var(--pink); display: block; margin-bottom: 2px; }
-  .pl-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
-  .pl-card select, .pl-card input:not([type=checkbox]):not([type=range]):not([type=color]):not([type=file]), .pl-card textarea {
-    width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; }
-  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 8px; margin: 6px 0 12px; }
-  .swatch { position: relative; height: 48px; border: 2px solid transparent; border-radius: 10px; cursor: pointer; padding: 0; }
+  #pl-fit { color: #ff9a9a; text-align: center; font-weight: 700; min-height: 1.2em; margin-top: 8px; }
+  .pl-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .pl-steps button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border: 1px solid var(--rule); border-radius: 999px; background: none; color: var(--muted); font: 700 0.72rem var(--sans); cursor: pointer; }
+  .pl-steps b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--rule); color: var(--cream); font-size: 0.7rem; }
+  .pl-steps button.done b { background: #6b5a5e; }
+  .pl-steps button.on { border-color: var(--pink); color: var(--cream); }
+  .pl-steps button.on b { background: var(--pink); color: #141112; }
+  .pl-steps button:not(.on) span { display: none; }
+  .pl-card { padding: 20px 22px; background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; display: grid; gap: 10px; }
+  .pl-card h2 { font-size: 1.5rem; margin: 0; }
+  .pl-card .step { font: 700 0.7rem var(--sans); letter-spacing: 0.2em; text-transform: uppercase; color: var(--pink); display: block; }
+  .pl-card label { display: grid; gap: 4px; font-size: 0.85rem; font-weight: 700; }
+  .pl-card label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem; }
+  .pl-card label.strong { font-weight: 700; }
+  .pl-card select, .pl-card input:not([type=checkbox]):not([type=color]):not([type=file]), .pl-card textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; font-weight: 400; }
+  .pl-card input[type=color] { width: 100%; height: 38px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
+  .pl-card input[type=checkbox] { accent-color: var(--pink); width: 18px; height: 18px; }
+  .pl-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
+  .pl-row .grow { flex: 1 1 140px; }
+  .sub { font-weight: 700; font-size: 0.85rem; margin-top: 4px; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
+  .swatch { position: relative; height: 50px; border: 2px solid transparent; border-radius: 10px; cursor: pointer; padding: 0; }
   .swatch span { position: absolute; inset: auto 0 -1px 0; font: 700 0.6rem var(--sans); color: #fff; text-shadow: 0 1px 2px #000; padding: 2px; line-height: 1.1; }
   .swatch.on { border-color: var(--pink); box-shadow: 0 0 0 2px var(--pink); }
-  .pl-add { display: flex; flex-wrap: wrap; gap: 8px; }
-  .pl-add .btn { padding: 8px 12px; font-size: 0.7rem; }
-  .pl-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
-  .pl-fields .fld { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 700; }
-  .pl-fields .fld.wide { grid-column: 1 / -1; }
-  .pl-fields .fld.check { display: flex; align-items: center; gap: 8px; }
-  .pl-fields input[type=range] { width: 100%; accent-color: var(--pink); }
-  .pl-fields input[type=color] { width: 100%; height: 38px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
+  .pl-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pl-choice { padding: 10px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--bg); color: var(--cream); font: inherit; cursor: pointer; text-align: left; }
+  .pl-choice.on { border-color: var(--pink); box-shadow: 0 0 0 1px var(--pink); background: rgba(231, 163, 184, 0.12); }
+  .pl-list { display: grid; gap: 4px; max-height: 340px; overflow: auto; padding-right: 4px; }
+  .pl-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+  .pl-line.check { justify-content: flex-start; }
+  .pl-qty { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+  .pl-qty span { min-width: 22px; text-align: center; font-weight: 700; }
+  .pl-qty button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--rule); background: var(--bg); color: var(--cream); font-size: 1.1rem; cursor: pointer; }
+  .pl-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-items: end; padding: 12px; border: 1px solid var(--hair); border-radius: 12px; }
+  .pl-extra b, .pl-extra img, .pl-extra .del { grid-column: 1 / -1; }
+  .pl-extra img { max-height: 90px; width: auto; border-radius: 6px; }
+  .pl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .pl-grid .wide { grid-column: 1 / -1; }
+  .link-btn { background: none; border: 0; color: var(--pink); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; justify-self: start; text-align: left; }
+  .del { color: #e59a90 !important; border-color: #e59a90 !important; }
   .file-btn { justify-self: start; cursor: pointer; }
-  .pl-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .pl-acts .del { color: #e59a90; border-color: #e59a90; }
-  #pl-summary { color: var(--muted); font-size: 0.92rem; }
-  .pl-finish .btn { width: 100%; margin-top: 8px; }
+  .pl-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pl-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; }
+  .pl-nav #pl-next { margin-left: auto; }
+  .summary { color: var(--muted); font-size: 0.92rem; }
   .hint { color: var(--muted); font-size: 0.88rem; }
-  #pl-msg { color: var(--pink); min-height: 1.2em; }
+  #pl-msg { color: var(--pink); min-height: 1.2em; margin-top: 8px; }
   @media (max-width: 900px) {
     .planner { grid-template-columns: 1fr; }
     .pl-stage { position: static; }
-    #pl-svg { max-height: 60vh; }
+    #pl-svg { max-height: 56vh; }
   }
 </style>
 </head>
@@ -66,7 +89,7 @@
       <span class="eyebrow">Plan it your way</span>
       <h1>Shadow Box <em>Planner</em></h1>
       <div class="rule-orn" aria-hidden="true"><span></span></div>
-      <p>Pick a size, background and frame, add your flag, medals, rank and photos, and drag everything where you'd like it. Then send the plan with your order. It's a starting point: we'll fine-tune the layout with you before we build.</p>
+      <p>We'll walk you through it one step at a time: the box, your flag, medals, rank, patches, photos and the engraved plate. We lay it out for you, and you can move things around. Then send the plan with your order. It's a starting point: we'll fine-tune it with you before we build.</p>
     </div>
     <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 120 60, 240 0, 360 30 S 600 60, 720 30 S 960 0, 1080 30 S 1320 60, 1440 30 V60 H0 Z" fill="#141112"/></svg>
   </section>
@@ -79,37 +102,18 @@
           <button class="btn ghost sm" id="pl-undo" type="button" disabled>Undo</button>
           <button class="btn ghost sm" id="pl-clear" type="button">Start Over</button>
         </div>
-        <p class="hint" style="text-align:center;margin-top:8px">Items are shown at their real size for the box you pick. Drag to move; tap an item to change it.</p>
+        <p id="pl-fit" role="status"></p>
+        <p class="hint" style="text-align:center">Everything is shown at its real size in the box you pick.</p>
       </div>
 
       <div class="pl-panel">
-        <div class="pl-card">
-          <span class="step">Step 1</span><h2>The box</h2>
-          <div class="pl-row">
-            <label style="flex:1 1 140px">Size (inches)<select id="pl-size"></select></label>
-            <label><input type="checkbox" id="pl-wide"> Wide (landscape)</label>
-          </div>
-          <p style="margin-top:12px;font-weight:700;font-size:0.85rem">Background</p>
-          <div class="swatches" id="pl-bgs"></div>
-          <p style="font-weight:700;font-size:0.85rem">Frame</p>
-          <div class="swatches" id="pl-frames"></div>
+        <nav class="pl-steps" id="pl-steps" aria-label="Steps"></nav>
+        <div class="pl-card" id="pl-step"></div>
+        <div class="pl-nav">
+          <button class="btn ghost" id="pl-back" type="button">Back</button>
+          <button class="btn" id="pl-next" type="button">Next</button>
         </div>
-
-        <div class="pl-card">
-          <span class="step">Step 2</span><h2>Add your items</h2>
-          <div class="pl-add" id="pl-add"></div>
-        </div>
-
-        <div class="pl-card" id="pl-item"></div>
-
-        <div class="pl-card pl-finish">
-          <span class="step">Step 3</span><h2>Send it with your order</h2>
-          <p id="pl-summary"></p>
-          <button class="btn" id="pl-order" type="button">Use This Plan in My Order</button>
-          <button class="btn ghost" id="pl-download" type="button">Download Picture</button>
-          <p id="pl-msg" role="status"></p>
-          <p class="hint">Your plan stays in this browser, so you can come back to it later.</p>
-        </div>
+        <p id="pl-msg" role="status"></p>
       </div>
     </div>
   </section>

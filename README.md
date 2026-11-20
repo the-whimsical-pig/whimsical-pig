@@ -268,4 +268,10 @@ On the preview site's admin page, **Versions** shows what's waiting to go live, 
 One-time setup: a GitHub fine-grained token for `the-whimsical-pig/whimsical-pig` with **Contents: Read and write**, saved as the secret `GITHUB_TOKEN` on the preview Worker (the tab walks you through it).
 
 ## Shadow Box Planner (`planner.html`, `planner.js`)
-Customers pick a box size, background and frame, add a folded flag, medals, ribbon rack, rank, badges, patches, coins, dog tags, photos (their own), an engraved plate, a guidon, a certificate or words, and drag them into place. Items are drawn at true size for the box. The plan stays in their browser. **Use This Plan in My Order** opens Start an Order with Military Framing → Shadow Box picked, the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (size, colors, every item and the plate wording) in the order.
+A step-by-step guide: what it's for, the box, flag, medals & ribbons, rank & badges, patches/coins/dog tags (plus guidons, certificates or any other item with its size typed in), photos, the plate, arrange, send. Customers pick from common choices (medals with close ribbon colors, badges, division patches, ranks) and type the plate wording into labeled boxes (rank and name, position, unit, dates, a few words, a quote), with suggested wording for retirements, PCS and memorials.
+
+Everything is drawn at its real size, nothing can be stretched, and items can't be dragged outside the box. The planner lays everything out on its own; customers can drag or turn items, or press Arrange for Me Again. If things don't fit, it says so and offers the smallest box on the list where they do.
+
+The box sizes, backgrounds and frames offered come from **Admin → Shadow Box Planner** (add or remove any; the color is only for the drawing). They're saved with the site settings as `planner` and sent in `/api/site`.
+
+The plan stays in the customer's browser. **Use This Plan in My Order** opens Start an Order with Military Framing → Shadow Box picked, the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (size, colors, every item and the plate wording) in the order.
