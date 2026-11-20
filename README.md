@@ -267,11 +267,16 @@ On the preview site's admin page, **Versions** shows what's waiting to go live, 
 
 One-time setup: a GitHub fine-grained token for `the-whimsical-pig/whimsical-pig` with **Contents: Read and write**, saved as the secret `GITHUB_TOKEN` on the preview Worker (the tab walks you through it).
 
-## Shadow Box Planner (`planner.html`, `planner.js`)
-A step-by-step guide: what it's for, the box, flag, medals & ribbons, rank & badges, patches/coins/dog tags (plus guidons, certificates or any other item with its size typed in), photos, the plate, arrange, send. Customers pick from common choices (medals with close ribbon colors, badges, division patches, ranks) and type the plate wording into labeled boxes (rank and name, position, unit, dates, a few words, a quote), with suggested wording for retirements, PCS and memorials.
+## Shadow Box Planner (`planner.html`, `planner.js`, `planner-defaults.js`)
+Six short steps: what it's for, the box, add your items, the plate, arrange, send. Items are plain, common-size blanks (folded flag, medal, ribbon rack, rank, badge, patch, photo, coin, dog tags, jacket, guidon, certificate…), each with sizes to pick from; customers can type any other size, and **Something else** adds anything at all with its own name, shape and size. The page says plainly that these are only for planning and the shop frames almost anything.
 
-Everything is drawn at its real size, nothing can be stretched, and items can't be dragged outside the box. The planner lays everything out on its own; customers can drag or turn items, or press Arrange for Me Again. If things don't fit, it says so and offers the smallest box on the list where they do.
+Everything is drawn at its real size, nothing can be stretched, and items can't be dragged outside the box. The planner lays everything out (neat rows first; if that's too full, it tucks smaller things in beside the big ones). If things still don't fit, it offers the smallest box on the list where they do.
 
-The box sizes, backgrounds and frames offered come from **Admin → Shadow Box Planner** (add or remove any; the color is only for the drawing). They're saved with the site settings as `planner` and sent in `/api/site`.
+**Admin → Shadow Box Planner** controls all of it, and saves to the site settings as `planner` (sent in `/api/site`):
+- **Items**: add, rename, remove or reorder; pick the group (decides where it goes in the box and what's ticked on the order form), the plain shape and color; add or remove sizes; add a picture or a PDF (first page) of the real thing, which the planner shows instead of the plain shape. Pictures are stored as site photos of kind `planner`.
+- **Box Sizes & Colors**: box sizes, backgrounds, frames.
+- **Plates & Wording**: plate colors and widths, and the "what's it for" reasons with suggested plate wording.
 
-The plan stays in the customer's browser. **Use This Plan in My Order** opens Start an Order with Military Framing → Shadow Box picked, the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (size, colors, every item and the plate wording) in the order.
+`planner-defaults.js` holds the starting lists, used until the shop saves its own. PDFs are read in the browser with PDF.js (`vendor/pdfjs/`, Apache-2.0), loaded only when a PDF is picked.
+
+The plan stays in the customer's browser. **Use This Plan in My Order** opens Start an Order with Military Framing → Shadow Box picked, the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (size, colors, every item and size, and the plate wording) in the order.

@@ -1443,19 +1443,9 @@ async function saveSite(request, env) {
     site.reviews = b.reviews.map(r => ({ text: cleanText(r && r.text, 600), name: cleanText(r && r.name, 60) })).filter(r => r.text);
   }
   if (b.planner !== undefined) {
-    // Shadow Box Planner choices: box sizes ("16x20"), backgrounds and frames ({ name, color })
-    if (b.planner === null) site.planner = null;
-    else {
-      const p = b.planner || {}, color = c => /^#[0-9a-f]{6}$/i.test(c || "") ? c.toLowerCase() : "";
-      const sizes = [...new Set((Array.isArray(p.sizes) ? p.sizes : []).map(z => String(z || "").replace(/\s/g, "").toLowerCase().replace("×", "x"))
-        .filter(z => /^\d{1,2}(\.\d)?x\d{1,2}(\.\d)?$/.test(z) && z.split("x").every(n => +n >= 4 && +n <= 60)))];
-      const named = (list, what) => (Array.isArray(list) ? list : []).map(o => ({ name: cleanText(o && o.name, 30), color: color(o && o.color) }))
-        .filter((o, i, all) => o.name && o.color && all.findIndex(x => x.name === o.name) === i);
-      const backgrounds = named(p.backgrounds), frames = named(p.frames);
-      if (!sizes.length || !backgrounds.length || !frames.length) return json({ error: "Keep at least one size, one background and one frame." }, 400);
-      if (sizes.length > 30 || backgrounds.length > 30 || frames.length > 30) return json({ error: "Up to 30 of each." }, 400);
-      site.planner = { sizes, backgrounds, frames };
-    }
+    const r = cleanPlanner(b.planner);
+    if (r.error) return json({ error: r.error }, 400);
+    site.planner = r.planner;
   }
   if (b.themes !== undefined) {
     if (!Array.isArray(b.themes) || b.themes.length > 20) return json({ error: "Up to 20 holiday looks." }, 400);
@@ -1474,6 +1464,44 @@ async function saveSite(request, env) {
   return json({ ok: true, ...site, activeTheme: theme ? theme.id : "" });
 }
 
+// Shadow Box Planner choices (Admin → Shadow Box Planner). Anything left out keeps the planner's starting list.
+const PLANNER_CATS = ["flag", "medal", "rank", "badge", "patch", "photo", "coin", "other"];
+const PLANNER_SHAPES = ["rect", "rounded", "circle", "oval", "triangle", "shield", "medal", "ribbon", "chevron", "tab", "pennant", "jacket", "tags", "star", "photo"];
+function cleanPlanner(p) {
+  if (p === null) return { planner: null };
+  if (!p || typeof p !== "object") return { error: "Couldn't read the planner choices." };
+  const color = c => /^#[0-9a-f]{6}$/i.test(c || "") ? c.toLowerCase() : "";
+  const inch = v => { const n = Math.round(parseFloat(v) * 100) / 100; return n >= 0.25 && n <= 72 ? n : 0; };
+  const list = (v, max, what) => { if (v === undefined) return undefined; if (!Array.isArray(v)) throw new Error(`Couldn't read the ${what}.`); if (v.length > max) throw new Error(`Up to ${max} ${what}.`); return v; };
+  const named = (v, what) => { const l = list(v, 40, what); if (!l) return undefined;
+    const out = l.map(o => ({ name: cleanText(o && o.name, 30), color: color(o && o.color) })).filter((o, i, all) => o.name && o.color && all.findIndex(x => x.name === o.name) === i);
+    if (!out.length) throw new Error(`Keep at least one in ${what}.`); return out; };
+  try {
+    const out = {};
+    const sizes = list(p.sizes, 40, "box sizes");
+    if (sizes) {
+      out.sizes = [...new Set(sizes.map(z => String(z || "").replace(/\s/g, "").toLowerCase().replace("×", "x"))
+        .filter(z => /^\d{1,2}(\.\d{1,2})?x\d{1,2}(\.\d{1,2})?$/.test(z) && z.split("x").every(n => +n >= 4 && +n <= 72)))];
+      if (!out.sizes.length) throw new Error("Keep at least one box size.");
+    }
+    for (const [k, what] of [["backgrounds", "backgrounds"], ["frames", "frames"], ["plateColors", "plate colors"]]) { const v = named(p[k], what); if (v) out[k] = v; }
+    const widths = list(p.plateWidths, 20, "plate widths");
+    if (widths) { out.plateWidths = [...new Set(widths.map(w => String(inch(w) || "")).filter(w => w && +w >= 1 && +w <= 36))]; if (!out.plateWidths.length) throw new Error("Keep at least one plate width."); }
+    const purposes = list(p.purposes, 20, "reasons");
+    if (purposes) { out.purposes = purposes.map(x => ({ name: cleanText(x && x.name, 30), text: cleanText(x && x.text, 300) })).filter(x => x.name); if (!out.purposes.length) throw new Error("Keep at least one reason."); }
+    const items = list(p.items, 120, "items");
+    if (items) out.items = items.map((it, i) => {
+      if (!it || typeof it !== "object") return null;
+      const sizes = (Array.isArray(it.sizes) ? it.sizes : []).slice(0, 12).map(z => ({ label: cleanText(z && z.label, 30), w: inch(z && z.w), h: inch(z && z.h) }))
+        .filter(z => z.w && z.h).map(z => ({ ...z, label: z.label || `${z.w} × ${z.h} in` }));
+      return { id: /^[\w-]{1,24}$/.test(it.id || "") ? it.id : "i" + (i + 1) + "-" + crypto.randomUUID().slice(0, 4), name: cleanText(it.name, 40),
+        cat: PLANNER_CATS.includes(it.cat) ? it.cat : "other", shape: PLANNER_SHAPES.includes(it.shape) ? it.shape : "rect",
+        color: color(it.color) || "#888888", photo: Math.max(0, parseInt(it.photo, 10) || 0), sizes };
+    }).filter(it => it && it.name && it.sizes.length);
+    return { planner: out };
+  } catch (err) { return { error: err.message }; }
+}
+
 // A photo from the admin page: the browser sends a big copy and a small copy
 async function addPhoto(request, env) {
   let form;
@@ -1482,7 +1510,7 @@ async function addPhoto(request, env) {
   if (!full || typeof full !== "object" || !small || typeof small !== "object") return json({ error: "No photo was sent." }, 400);
   if (!/^image\/(jpeg|png|webp)$/.test(full.type)) return json({ error: "Use a JPG, PNG or WebP photo." }, 415);
   if (full.size > MAX_PHOTO_BYTES || small.size > MAX_SMALL_BYTES) return json({ error: "That photo is too large." }, 413);
-  const kind = ["gallery", "replacement", "banner"].includes(form.get("kind")) ? form.get("kind") : "gallery";
+  const kind = ["gallery", "replacement", "banner", "planner"].includes(form.get("kind")) ? form.get("kind") : "gallery";
   const max = await env.DB.prepare(`SELECT COALESCE(MAX(sort), 0) AS n FROM site_photos`).first();
   const row = await env.DB.prepare(
     `INSERT INTO site_photos (kind, grp, caption, full, small, mime, sort) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`

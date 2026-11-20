@@ -57,7 +57,6 @@
   .pl-qty button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--rule); background: var(--bg); color: var(--cream); font-size: 1.1rem; cursor: pointer; }
   .pl-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-items: end; padding: 12px; border: 1px solid var(--hair); border-radius: 12px; }
   .pl-extra b, .pl-extra img, .pl-extra .del { grid-column: 1 / -1; }
-  .pl-extra img { max-height: 90px; width: auto; border-radius: 6px; }
   .pl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
   .pl-grid .wide { grid-column: 1 / -1; }
   .link-btn { background: none; border: 0; color: var(--pink); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; justify-self: start; text-align: left; }
@@ -67,6 +66,14 @@
   .pl-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; }
   .pl-nav #pl-next { margin-left: auto; }
   .summary { color: var(--muted); font-size: 0.92rem; }
+  .pl-note { padding: 12px 14px; border-radius: 12px; background: rgba(231, 163, 184, 0.12); border: 1px solid var(--pink); font-size: 0.92rem; }
+  .pl-choice.add { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; }
+  .pl-choice.add img { width: 28px; height: 28px; object-fit: contain; }
+  .pl-choice.strong { border-color: var(--pink); font-weight: 700; }
+  .pl-extra b { display: flex; align-items: center; gap: 10px; }
+  .pl-extra b img { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; }
+  .pl-extra .wide, .pl-wh { grid-column: 1 / -1; }
+  .pl-wh { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .hint { color: var(--muted); font-size: 0.88rem; }
   #pl-msg { color: var(--pink); min-height: 1.2em; margin-top: 8px; }
   @media (max-width: 900px) {
@@ -89,7 +96,7 @@
       <span class="eyebrow">Plan it your way</span>
       <h1>Shadow Box <em>Planner</em></h1>
       <div class="rule-orn" aria-hidden="true"><span></span></div>
-      <p>We'll walk you through it one step at a time: the box, your flag, medals, rank, patches, photos and the engraved plate. We lay it out for you, and you can move things around. Then send the plan with your order. It's a starting point: we'll fine-tune it with you before we build.</p>
+      <p>Plan your shadow box in a few easy steps: pick the box, add your items, word the plate, and we lay it out for you. It's just a starting point. We frame almost anything (jackets and uniforms, guidons, jerseys and more), so if something isn't listed, add it anyway or tell us in your order.</p>
     </div>
     <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 120 60, 240 0, 360 30 S 600 60, 720 30 S 960 0, 1080 30 S 1320 60, 1440 30 V60 H0 Z" fill="#141112"/></svg>
   </section>
@@ -120,6 +127,7 @@
 </main>
 
 <footer id="site-footer"></footer>
+<script src="planner-defaults.js"></script>
 <script src="planner.js"></script>
 </body>
 </html>

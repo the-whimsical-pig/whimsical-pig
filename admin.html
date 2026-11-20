@@ -184,6 +184,20 @@
   .chip button:hover { opacity: 1; color: #e59a90; }
   .add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
   .add-row input:not([type=color]) { flex: 1 1 80px; min-width: 0; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; }
+  .pl-it { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 16px; margin-bottom: 10px; }
+  .pl-it-pic { display: grid; gap: 8px; justify-items: center; align-content: start; text-align: center; }
+  .pl-it-pic img, .pl-swatch { width: 90px; height: 90px; object-fit: contain; border-radius: 10px; background: var(--bg); }
+  .pl-swatch { display: block; border: 1px solid var(--rule); }
+  .pl-it-main { display: grid; gap: 10px; min-width: 0; }
+  .pl-it-row { display: grid; grid-template-columns: 2fr 1.4fr 1.4fr 60px; gap: 8px; }
+  .pl-it-row label { display: grid; gap: 4px; font-size: 0.8rem; font-weight: 700; }
+  .pl-it-row input, .pl-it-row select { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; font-weight: 400; }
+  .pl-it-row input[type=color] { height: 38px; padding: 2px; }
+  .pl-it .chip small { color: var(--muted); }
+  .pl-it-acts { display: flex; gap: 18px; }
+  .pl-it .add-row { margin-top: 0; }
+  .file-btn { cursor: pointer; }
+  @media (max-width: 700px) { .pl-it { grid-template-columns: 1fr; } .pl-it-pic { grid-template-columns: 70px auto auto; justify-items: start; align-items: center; } .pl-it-pic img, .pl-swatch { width: 70px; height: 70px; } .pl-it-row { grid-template-columns: 1fr 1fr; } }
   .add-row input[type=color] { width: 44px; height: 38px; padding: 2px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
   .form-msg { min-height: 1.2em; color: #ff8f8a; font-size: 0.9rem; }
   .dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
@@ -614,33 +628,64 @@
       </div>
     </dialog>
 
-    <!-- Choices offered in the Shadow Box Planner -->
+    <!-- Everything offered in the Shadow Box Planner -->
     <section id="tab-planner" hidden>
       <div class="toolbar">
         <div>
           <h2>Shadow Box Planner</h2>
-          <p class="hint">Choose the box sizes, backgrounds and frames customers can pick in the <a href="planner.html" target="_blank" rel="noopener">Shadow Box Planner</a>. Remove ones you don't carry, add new ones, then Save. Changes show within a minute.</p>
+          <p class="hint">Everything customers can pick in the <a href="planner.html" target="_blank" rel="noopener">Shadow Box Planner</a>. Add, change or remove anything, then press Save. Changes show within a minute.</p>
         </div>
         <div class="tools">
-          <button class="btn ghost sm" id="pl-reset" type="button">Back to Our Usual List</button>
+          <button class="btn ghost sm" id="pl-reset" type="button">Back to Our Usual Lists</button>
           <button class="btn sm" id="pl-save" type="button">Save Planner Choices</button>
         </div>
       </div>
       <p class="hint" id="pl-admin-msg" role="status"></p>
-      <div class="pl-admin">
-        <div class="card"><h3 class="sub-h">Box sizes (inches)</h3>
-          <div class="chips" id="pl-sizes"></div>
-          <div class="add-row"><input id="pl-size-w" type="number" min="4" max="60" step="0.5" placeholder="Width" aria-label="Width in inches"> ×
-            <input id="pl-size-h" type="number" min="4" max="60" step="0.5" placeholder="Height" aria-label="Height in inches">
-            <button class="btn ghost sm" id="pl-size-add" type="button">+ Add Size</button></div></div>
-        <div class="card"><h3 class="sub-h">Backgrounds</h3><div class="chips" id="pl-bgs"></div>
-          <div class="add-row"><input id="pl-bg-name" maxlength="30" placeholder="Name, e.g. Olive suede"><input id="pl-bg-color" type="color" value="#3b5323" aria-label="Color">
-            <button class="btn ghost sm" id="pl-bg-add" type="button">+ Add</button></div></div>
-        <div class="card"><h3 class="sub-h">Frames</h3><div class="chips" id="pl-frames"></div>
-          <div class="add-row"><input id="pl-fr-name" maxlength="30" placeholder="Name, e.g. Barnwood"><input id="pl-fr-color" type="color" value="#6d5a48" aria-label="Color">
-            <button class="btn ghost sm" id="pl-fr-add" type="button">+ Add</button></div></div>
+      <div class="pills" role="tablist" aria-label="Show">
+        <button type="button" role="tab" data-pane="items" aria-selected="true">Items</button>
+        <button type="button" role="tab" data-pane="box" aria-selected="false">Box Sizes &amp; Colors</button>
+        <button type="button" role="tab" data-pane="plate" aria-selected="false">Plates &amp; Wording</button>
       </div>
-      <p class="hint">The color is only for the drawing, so customers get the idea. Pick the closest one.</p>
+
+      <div class="pane" data-pane="items">
+        <div class="toolbar">
+          <p class="hint">Plain, common-size items customers add to their box. Give each one the sizes people can pick (customers can always type their own size too).
+            Add a picture or PDF of the real thing and the planner shows that instead of the plain shape. PNGs with a see-through background look best.</p>
+          <div class="tools"><button class="btn sm" id="pl-item-add" type="button">+ Add an Item</button></div>
+        </div>
+        <div id="pl-items"></div>
+      </div>
+
+      <div class="pane" data-pane="box" hidden>
+        <div class="pl-admin">
+          <div class="card"><h3 class="sub-h">Box sizes (inches)</h3>
+            <div class="chips" id="pl-sizes"></div>
+            <div class="add-row"><input id="pl-size-w" type="number" min="4" max="72" step="0.5" placeholder="Width" aria-label="Width in inches"> ×
+              <input id="pl-size-h" type="number" min="4" max="72" step="0.5" placeholder="Height" aria-label="Height in inches">
+              <button class="btn ghost sm" id="pl-size-add" type="button">+ Add Size</button></div></div>
+          <div class="card"><h3 class="sub-h">Backgrounds</h3><div class="chips" data-named="backgrounds"></div>
+            <div class="add-row"><input data-new-name="backgrounds" maxlength="30" placeholder="Name, e.g. Olive suede"><input data-new-color="backgrounds" type="color" value="#3b5323" aria-label="Color">
+              <button class="btn ghost sm" data-named-add="backgrounds" type="button">+ Add</button></div></div>
+          <div class="card"><h3 class="sub-h">Frames</h3><div class="chips" data-named="frames"></div>
+            <div class="add-row"><input data-new-name="frames" maxlength="30" placeholder="Name, e.g. Barnwood"><input data-new-color="frames" type="color" value="#6d5a48" aria-label="Color">
+              <button class="btn ghost sm" data-named-add="frames" type="button">+ Add</button></div></div>
+        </div>
+        <p class="hint">The color is only for the drawing, so customers get the idea. Pick the closest one.</p>
+      </div>
+
+      <div class="pane" data-pane="plate" hidden>
+        <div class="pl-admin">
+          <div class="card"><h3 class="sub-h">Plate colors</h3><div class="chips" data-named="plateColors"></div>
+            <div class="add-row"><input data-new-name="plateColors" maxlength="30" placeholder="Name, e.g. Brushed brass"><input data-new-color="plateColors" type="color" value="#b08d57" aria-label="Color">
+              <button class="btn ghost sm" data-named-add="plateColors" type="button">+ Add</button></div></div>
+          <div class="card"><h3 class="sub-h">Plate widths (inches)</h3><div class="chips" id="pl-widths"></div>
+            <div class="add-row"><input id="pl-width-new" type="number" min="1" max="36" step="0.5" placeholder="Width" aria-label="Plate width in inches">
+              <button class="btn ghost sm" id="pl-width-add" type="button">+ Add Width</button></div></div>
+        </div>
+        <div class="sec-head"><h3 class="sub-h">What it's for, and the suggested plate wording</h3><button class="btn ghost sm" id="pl-purpose-add" type="button">+ Add a Reason</button></div>
+        <p class="hint">Customers pick one in the first step. The wording is offered on the plate step; leave it blank to offer none.</p>
+        <div class="list" id="pl-purposes"></div>
+      </div>
     </section>
 
     <!-- Versions: preview site only -->
@@ -694,6 +739,7 @@
 
 <script src="site.js"></script>
 <script src="order-config.js"></script>
+<script src="planner-defaults.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const money = c => "$" + (c / 100).toFixed(2);
@@ -1586,47 +1632,140 @@
   };
 
   // ---------- Shadow Box Planner choices ----------
-  const PLANNER_USUAL = {
-    sizes: ["11x14", "12x16", "14x18", "16x20", "18x24", "20x24", "22x28", "24x30", "24x36"],
-    backgrounds: [["Black velvet", "#1c1614"], ["Navy", "#1d2847"], ["Royal blue", "#1f4596"], ["Red", "#7d1c1c"], ["Forest green", "#1f4a2c"],
-      ["Maroon", "#5a1d28"], ["Gray suede", "#555555"], ["Cream linen", "#ece5d3"], ["White suede", "#f3f2ed"]].map(([name, color]) => ({ name, color })),
-    frames: [["Dark walnut", "#3b2416"], ["Black", "#161616"], ["Cherry", "#6b2318"], ["Oak", "#9c7040"], ["Gold", "#b8913a"], ["Silver", "#a3a8ae"]].map(([name, color]) => ({ name, color })),
-  };
+  const PD = window.PLANNER_DEFAULTS, PL_KEYS = ["sizes", "backgrounds", "frames", "plateColors", "plateWidths", "purposes", "items"];
   let plOpts = null;
-  const plDirty = () => { $("pl-admin-msg").textContent = "Press Save Planner Choices to keep your changes."; };
+  const plMsg = t => { $("pl-admin-msg").textContent = t; };
+  const plDirty = () => plMsg("Press Save Planner Choices to keep your changes.");
+  const usual = () => JSON.parse(JSON.stringify(Object.fromEntries(PL_KEYS.map(k => [k, PD[k]]))));
   async function loadPlanner() {
-    try { await loadSite(); } catch (err) { $("pl-admin-msg").textContent = err.message; return; }
-    plOpts = JSON.parse(JSON.stringify(site.planner || PLANNER_USUAL)); drawPlanner();
+    try { await loadSite(); } catch (err) { plMsg(err.message); return; }
+    plOpts = usual();
+    for (const k of PL_KEYS) if (site.planner && Array.isArray(site.planner[k])) plOpts[k] = JSON.parse(JSON.stringify(site.planner[k]));
+    drawPlanner();
   }
-  function drawPlanner() {
-    const sorted = [...plOpts.sizes].sort((a, b) => a.split("x").reduce((n, v) => n * v, 1) - b.split("x").reduce((n, v) => n * v, 1));
-    plOpts.sizes = sorted;
-    $("pl-sizes").innerHTML = sorted.map((z, i) => `<span class="chip">${esc(z.replace("x", " × "))}<button type="button" data-del="sizes" data-i="${i}" aria-label="Remove ${esc(z)}">×</button></span>`).join("");
-    for (const [box, key] of [["pl-bgs", "backgrounds"], ["pl-frames", "frames"]])
-      $(box).innerHTML = plOpts[key].map((o, i) => `<span class="chip"><i style="background:${esc(o.color)}"></i>${esc(o.name)}<button type="button" data-del="${key}" data-i="${i}" aria-label="Remove ${esc(o.name)}">×</button></span>`).join("");
-  }
-  $("tab-planner").addEventListener("click", e => {
-    const d = e.target.dataset; if (!d.del) return;
-    if (plOpts[d.del].length < 2) { $("pl-admin-msg").textContent = "Keep at least one."; return; }
-    plOpts[d.del].splice(+d.i, 1); drawPlanner(); plDirty();
+  document.querySelectorAll("#tab-planner .pills button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tab-planner .pills button").forEach(o => o.setAttribute("aria-selected", o === b));
+    document.querySelectorAll("#tab-planner .pane").forEach(p => { p.hidden = p.dataset.pane !== b.dataset.pane; });
   });
+  const chip = (text, del, i, dot) => `<span class="chip">${dot ? `<i style="background:${esc(dot)}"></i>` : ""}${esc(text)}<button type="button" data-del="${del}" data-i="${i}" aria-label="Remove ${esc(text)}">×</button></span>`;
+  const area = z => z.split("x").reduce((n, v) => n * v, 1);
+  function drawPlanner() {
+    plOpts.sizes.sort((a, b) => area(a) - area(b));
+    plOpts.plateWidths.sort((a, b) => a - b);
+    $("pl-sizes").innerHTML = plOpts.sizes.map((z, i) => chip(z.replace("x", " × "), "sizes", i)).join("");
+    $("pl-widths").innerHTML = plOpts.plateWidths.map((w, i) => chip(w + " in", "plateWidths", i)).join("");
+    document.querySelectorAll("#tab-planner [data-named]").forEach(box => { const k = box.dataset.named; box.innerHTML = plOpts[k].map((o, i) => chip(o.name, k, i, o.color)).join(""); });
+    $("pl-purposes").innerHTML = plOpts.purposes.map((p, i) => `<div class="card review-card" data-pu="${i}">
+        <div class="review-row"><input data-pk="name" value="${esc(p.name)}" maxlength="30" placeholder="e.g. Retirement"><button type="button" class="link-btn" data-del="purposes" data-i="${i}">Remove</button></div>
+        <textarea data-pk="text" rows="2" maxlength="300" placeholder="Suggested plate wording (optional)">${esc(p.text)}</textarea></div>`).join("");
+    drawPlannerItems();
+  }
+  function drawPlannerItems() {
+    const opt = (list, cur) => list.map(o => `<option value="${o.id}"${o.id === cur ? " selected" : ""}>${esc(o.name)}</option>`).join("");
+    $("pl-items").innerHTML = PD.categories.map(c => {
+      const rows = plOpts.items.map((it, i) => [it, i]).filter(([it]) => it.cat === c.id);
+      return `<div class="sec-head"><h3 class="sub-h">${esc(c.name)}</h3></div>` + (rows.length ? rows.map(([it, i]) => `
+        <div class="card pl-it" data-it="${i}">
+          <div class="pl-it-pic">${it.photo ? `<img src="/api/photo/${it.photo}?s=sm" alt="">` : `<span class="pl-swatch" style="background:${esc(it.color)}"></span>`}
+            <label class="btn ghost sm file-btn">${it.photo ? "Change" : "Picture or PDF"}<input type="file" accept="image/*,application/pdf" data-pic hidden></label>
+            ${it.photo ? '<button type="button" class="link-btn" data-nopic>Use plain shape</button>' : ""}</div>
+          <div class="pl-it-main">
+            <div class="pl-it-row">
+              <label>Name<input data-ik="name" value="${esc(it.name)}" maxlength="40"></label>
+              <label>Group<select data-ik="cat">${opt(PD.categories, it.cat)}</select></label>
+              <label>Plain shape<select data-ik="shape">${opt(PD.shapes, it.shape)}</select></label>
+              <label>Color<input type="color" data-ik="color" value="${esc(it.color)}"></label>
+            </div>
+            <div class="chips">${it.sizes.map((z, k) => `<span class="chip">${esc(z.label)} <small>${z.w} × ${z.h} in</small><button type="button" data-zdel="${k}" aria-label="Remove size ${esc(z.label)}">×</button></span>`).join("") || '<span class="hint">Add at least one size.</span>'}</div>
+            <div class="add-row"><input data-nz="label" maxlength="30" placeholder="Size name, e.g. Large"><input data-nz="w" type="number" min="0.25" max="72" step="0.25" placeholder="Width"> ×
+              <input data-nz="h" type="number" min="0.25" max="72" step="0.25" placeholder="Height"><button class="btn ghost sm" type="button" data-zadd>+ Add Size</button></div>
+            <div class="pl-it-acts"><button type="button" class="link-btn" data-iup>Move up</button><button type="button" class="link-btn del" data-idel>Remove item</button></div>
+          </div>
+        </div>`).join("") : '<p class="hint">None. Customers can still add their own under “Something else”.</p>');
+    }).join("");
+  }
+  $("tab-planner").addEventListener("click", async e => {
+    const t = e.target.closest("button"); if (!t) return;
+    const d = t.dataset, card = t.closest("[data-it]"), it = card && plOpts.items[+card.dataset.it];
+    if (d.del) {
+      if (d.del !== "purposes" && plOpts[d.del].length < 2) { plMsg("Keep at least one."); return; }
+      plOpts[d.del].splice(+d.i, 1); drawPlanner(); return plDirty();
+    }
+    if (d.namedAdd) {
+      const k = d.namedAdd, n = document.querySelector(`[data-new-name="${k}"]`).value.trim();
+      if (!n) return plMsg("Type a name first.");
+      if (plOpts[k].some(o => o.name.toLowerCase() === n.toLowerCase())) return plMsg("That one's already on the list.");
+      plOpts[k].push({ name: n, color: document.querySelector(`[data-new-color="${k}"]`).value }); drawPlanner(); return plDirty();
+    }
+    if (!it) return;
+    if ("zdel" in d) { it.sizes.splice(+d.zdel, 1); drawPlannerItems(); return plDirty(); }
+    if ("zadd" in d) {
+      const v = k => card.querySelector(`[data-nz="${k}"]`).value, w = +v("w"), h = +v("h");
+      if (!(w >= 0.25 && w <= 72 && h >= 0.25 && h <= 72)) return plMsg("Type a width and height in inches (¼ to 72).");
+      it.sizes.push({ label: v("label").trim() || `${w} × ${h} in`, w, h }); drawPlannerItems(); return plDirty();
+    }
+    if ("iup" in d) { const i = plOpts.items.indexOf(it), j = plOpts.items.slice(0, i).map(x => x.cat).lastIndexOf(it.cat);
+      if (j >= 0) { plOpts.items.splice(i, 1); plOpts.items.splice(j, 0, it); drawPlannerItems(); plDirty(); } return; }
+    if ("idel" in d) { if (!confirm(`Remove “${it.name}” from the planner?`)) return; plOpts.items.splice(plOpts.items.indexOf(it), 1); drawPlannerItems(); return plDirty(); }
+    if ("nopic" in d) { it.photo = 0; drawPlannerItems(); return plDirty(); }
+  });
+  $("tab-planner").addEventListener("input", e => {
+    const el = e.target, card = el.closest("[data-it]"), pu = el.closest("[data-pu]");
+    if (card && el.dataset.ik) { plOpts.items[+card.dataset.it][el.dataset.ik] = el.value; if (el.dataset.ik === "cat") drawPlannerItems(); plDirty(); }
+    if (pu && el.dataset.pk) { plOpts.purposes[+pu.dataset.pu][el.dataset.pk] = el.value; plDirty(); }
+  });
+  $("tab-planner").addEventListener("change", async e => {
+    if (!("pic" in e.target.dataset)) return;
+    const file = e.target.files[0], it = plOpts.items[+e.target.closest("[data-it]").dataset.it]; if (!file) return;
+    plMsg("Adding the picture…");
+    try {
+      const pic = file.type === "application/pdf" || /\.pdf$/i.test(file.name) ? await pdfPicture(file) : file;
+      it.photo = await uploadSitePhoto(pic, "planner", "", it.name, true);
+      drawPlannerItems(); plMsg("Picture added. Press Save Planner Choices to keep it.");
+    } catch (err) { plMsg(err.message || "Couldn't add that picture."); }
+  });
+  // The first page of a PDF, as a picture
+  let pdfLib = null;
+  async function pdfPicture(file) {
+    if (!pdfLib) {
+      await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "vendor/pdfjs/pdf.min.js"; s.onload = ok; s.onerror = () => bad(new Error("Couldn't open the PDF reader.")); document.head.appendChild(s); });
+      pdfLib = window.pdfjsLib; pdfLib.GlobalWorkerOptions.workerSrc = "vendor/pdfjs/pdf.worker.min.js";
+    }
+    let doc;
+    try { doc = await pdfLib.getDocument({ data: await file.arrayBuffer() }).promise; } catch { throw new Error(`“${file.name}” couldn't be opened as a PDF.`); }
+    const page = await doc.getPage(1), base = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 1600 / Math.max(base.width, base.height) });
+    const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp, background: "rgba(0,0,0,0)" }).promise;
+    const blob = await new Promise(ok => c.toBlob(ok, "image/png"));
+    return new File([blob], file.name.replace(/\.pdf$/i, "") + ".png", { type: "image/png" });
+  }
+  $("pl-item-add").onclick = () => {
+    plOpts.items.push({ id: "n" + Date.now().toString(36), name: "New item", cat: "other", shape: "rect", color: "#888888", photo: 0, sizes: [{ label: "Standard", w: 4, h: 4 }] });
+    drawPlannerItems(); plDirty();
+    const cards = document.querySelectorAll("#pl-items .pl-it"), last = [...cards].find(c => +c.dataset.it === plOpts.items.length - 1);
+    if (last) { last.scrollIntoView({ block: "center" }); last.querySelector("[data-ik=name]").select(); }
+  };
   $("pl-size-add").onclick = () => {
     const w = +$("pl-size-w").value, h = +$("pl-size-h").value;
-    if (!(w >= 4 && w <= 60 && h >= 4 && h <= 60)) { $("pl-admin-msg").textContent = "Type a width and height between 4 and 60 inches."; return; }
+    if (!(w >= 4 && w <= 72 && h >= 4 && h <= 72)) return plMsg("Type a width and height between 4 and 72 inches.");
     const z = `${Math.min(w, h)}x${Math.max(w, h)}`;
     if (!plOpts.sizes.includes(z)) plOpts.sizes.push(z);
     $("pl-size-w").value = $("pl-size-h").value = ""; drawPlanner(); plDirty();
   };
-  for (const [btn, name, color, key] of [["pl-bg-add", "pl-bg-name", "pl-bg-color", "backgrounds"], ["pl-fr-add", "pl-fr-name", "pl-fr-color", "frames"]])
-    $(btn).onclick = () => {
-      const n = $(name).value.trim(); if (!n) { $("pl-admin-msg").textContent = "Type a name first."; return; }
-      if (plOpts[key].some(o => o.name.toLowerCase() === n.toLowerCase())) { $("pl-admin-msg").textContent = "That one's already on the list."; return; }
-      plOpts[key].push({ name: n, color: $(color).value }); $(name).value = ""; drawPlanner(); plDirty();
-    };
-  $("pl-reset").onclick = () => { plOpts = JSON.parse(JSON.stringify(PLANNER_USUAL)); drawPlanner(); plDirty(); };
+  $("pl-width-add").onclick = () => {
+    const w = +$("pl-width-new").value; if (!(w >= 1 && w <= 36)) return plMsg("Type a plate width between 1 and 36 inches.");
+    if (!plOpts.plateWidths.includes(String(w))) plOpts.plateWidths.push(String(w));
+    $("pl-width-new").value = ""; drawPlanner(); plDirty();
+  };
+  $("pl-purpose-add").onclick = () => { plOpts.purposes.push({ name: "", text: "" }); drawPlanner(); plDirty(); const all = document.querySelectorAll("#pl-purposes [data-pk=name]"); all[all.length - 1].focus(); };
+  $("pl-reset").onclick = () => { if (!confirm("Put back our usual lists? Your changes here are replaced (nothing is saved until you press Save).")) return; plOpts = usual(); drawPlanner(); plDirty(); };
   $("pl-save").onclick = async () => {
-    try { const r = await saveSite({ planner: plOpts }); plOpts = JSON.parse(JSON.stringify(r.planner)); drawPlanner(); $("pl-admin-msg").textContent = "Saved. The planner shows these within a minute."; }
-    catch (err) { $("pl-admin-msg").textContent = err.message; }
+    const bad = plOpts.items.find(it => !it.name.trim() || !it.sizes.length);
+    if (bad) return plMsg(`“${bad.name || "An item"}” needs a name and at least one size.`);
+    try { const r = await saveSite({ planner: { ...plOpts, purposes: plOpts.purposes.filter(p => p.name.trim()) } });
+      for (const k of PL_KEYS) if (r.planner && r.planner[k]) plOpts[k] = JSON.parse(JSON.stringify(r.planner[k]));
+      drawPlanner(); plMsg("Saved. The planner shows these within a minute."); }
+    catch (err) { plMsg(err.message); }
   };
 
   // ---------- versions (preview site only) ----------
