@@ -1307,7 +1307,7 @@
     let p = null;
     try { p = JSON.parse(localStorage.getItem("whimsicalpig-plan-order") || "null"); } catch (e) {}
     if (!p) return;
-    const ex = form.querySelector('input[name="example"][value="Shadow Box"]');
+    const ex = form.querySelector(`input[name="example"][value="${CSS.escape(p.example || "Shadow Box")}"]`) || form.querySelector('input[name="example"][value="Shadow Box"]');
     if (ex) ex.checked = true;
     form.elements.plan_note.value = p.text || "";
     for (const v of p.items || []) { const c = form.querySelector(`[name="q_items"][value="${CSS.escape(v)}"]`); if (c) c.checked = true; }

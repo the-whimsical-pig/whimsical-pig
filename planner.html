@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shadow Box Planner — Design Your Military Shadow Box | The Whimsical Pig</title>
+<title>Shadow Box &amp; Frame Planner — Design Your Military Shadow Box | The Whimsical Pig</title>
 <meta name="description" content="Lay out your military shadow box online: pick the size, background and frame, add your flag, medals, rank, photos and an engraved plate, then send the plan with your order. The Whimsical Pig, Watertown NY.">
 <meta property="og:title" content="Shadow Box Planner — The Whimsical Pig">
 <meta property="og:description" content="Design your shadow box online, then send it with your order.">
@@ -14,21 +14,21 @@
 <link rel="preload" href="fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="site.css">
 <style>
-  .planner { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); gap: 28px; align-items: start; }
+  .planner { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(330px, 1fr); gap: 28px; align-items: start; }
   .pl-stage { position: sticky; top: 92px; }
-  #pl-step { scroll-margin-top: 100px; }
-  .pl-canvas { background: radial-gradient(circle at 50% 40%, #3a2f2a, #1b1514 70%); border: 1px solid var(--rule); border-radius: 18px; padding: 22px; display: flex; justify-content: center; }
-  #pl-svg { width: 100%; max-height: 72vh; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
-  #pl-svg .pl-item { cursor: grab; }
-  .pl-bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
-  #pl-fit { color: #ff9a9a; text-align: center; font-weight: 700; min-height: 1.2em; margin-top: 8px; }
-  .pl-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .pl-canvas { background: radial-gradient(circle at 50% 40%, #3a2f2a, #1b1514 70%); border: 1px solid var(--rule); border-radius: 18px; padding: 18px; display: flex; justify-content: center; }
+  #pl-svg { width: 100%; max-height: 70vh; height: auto; user-select: none; -webkit-user-select: none; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
+  #pl-svg.live { touch-action: none; }
+  #pl-svg.live .pl-item { cursor: grab; }
+  .pl-bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }
+  #pl-fit { color: #ff9a9a; text-align: center; font-weight: 700; margin-top: 8px; }
+  #pl-fit:empty { display: none; }
+  .pl-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; scroll-margin-top: 100px; }
   .pl-steps button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border: 1px solid var(--rule); border-radius: 999px; background: none; color: var(--muted); font: 700 0.72rem var(--sans); cursor: pointer; }
-  .pl-steps b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--rule); color: var(--cream); font-size: 0.7rem; }
+  .pl-steps b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--rule); color: var(--cream); font-size: 0.72rem; }
   .pl-steps button.done b { background: #6b5a5e; }
   .pl-steps button.on { border-color: var(--pink); color: var(--cream); }
   .pl-steps button.on b { background: var(--pink); color: #141112; }
-  .pl-steps button:not(.on) span { display: none; }
   .pl-card { padding: 20px 22px; background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; display: grid; gap: 10px; }
   .pl-card h2 { font-size: 1.5rem; margin: 0; }
   .pl-card .step { font: 700 0.7rem var(--sans); letter-spacing: 0.2em; text-transform: uppercase; color: var(--pink); display: block; }
@@ -36,50 +36,75 @@
   .pl-card label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.95rem; }
   .pl-card label.strong { font-weight: 700; }
   .pl-card select, .pl-card input:not([type=checkbox]):not([type=color]):not([type=file]), .pl-card textarea {
-    width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; font-weight: 400; }
-  .pl-card input[type=color] { width: 100%; height: 38px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
+    width: 100%; min-width: 0; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; font-weight: 400; }
+  .pl-card input[type=color] { width: 100%; height: 40px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
   .pl-card input[type=checkbox] { accent-color: var(--pink); width: 18px; height: 18px; }
   .pl-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
   .pl-row .grow { flex: 1 1 140px; }
-  .sub { font-weight: 700; font-size: 0.85rem; margin-top: 4px; }
+  .sub { font-weight: 700; font-size: 0.95rem; margin-top: 6px; }
+  .mini { font-size: 0.78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 4px 0 -2px; }
   .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
   .swatch { position: relative; height: 50px; border: 2px solid transparent; border-radius: 10px; cursor: pointer; padding: 0; }
   .swatch span { position: absolute; inset: auto 0 -1px 0; font: 700 0.6rem var(--sans); color: #fff; text-shadow: 0 1px 2px #000; padding: 2px; line-height: 1.1; }
   .swatch.on { border-color: var(--pink); box-shadow: 0 0 0 2px var(--pink); }
+  .pl-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pl-kind { display: grid; gap: 4px; text-align: left; padding: 14px; border: 2px solid var(--rule); border-radius: 14px; background: var(--bg); color: var(--cream); font: inherit; cursor: pointer; }
+  .pl-kind b { font-size: 1.05rem; }
+  .pl-kind span { font-size: 0.82rem; color: var(--muted); }
+  .pl-kind.on { border-color: var(--pink); background: rgba(231, 163, 184, 0.12); }
+  .pl-starters { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+  .pl-starter { display: grid; gap: 6px; align-content: start; justify-items: center; padding: 10px 8px; border: 2px solid var(--rule); border-radius: 14px; background: var(--bg); color: var(--cream); font: 700 0.8rem var(--sans); cursor: pointer; text-align: center; }
+  .pl-starter svg { width: 100%; height: 92px; }
+  .pl-starter.on { border-color: var(--pink); }
+  .pl-starter.blank .plus { display: grid; place-items: center; height: 92px; font-size: 2.4rem; color: var(--pink); }
   .pl-choices { display: flex; flex-wrap: wrap; gap: 8px; }
   .pl-choice { padding: 10px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--bg); color: var(--cream); font: inherit; cursor: pointer; text-align: left; }
+  .pl-choice.sm { padding: 6px 12px; font-size: 0.88rem; }
   .pl-choice.on { border-color: var(--pink); box-shadow: 0 0 0 1px var(--pink); background: rgba(231, 163, 184, 0.12); }
-  .pl-list { display: grid; gap: 4px; max-height: 340px; overflow: auto; padding-right: 4px; }
-  .pl-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
-  .pl-line.check { justify-content: flex-start; }
-  .pl-qty { display: inline-flex; align-items: center; gap: 4px; flex: none; }
-  .pl-qty span { min-width: 22px; text-align: center; font-weight: 700; }
-  .pl-qty button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--rule); background: var(--bg); color: var(--cream); font-size: 1.1rem; cursor: pointer; }
-  .pl-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-items: end; padding: 12px; border: 1px solid var(--hair); border-radius: 12px; }
-  .pl-extra b, .pl-extra img, .pl-extra .del { grid-column: 1 / -1; }
+  .pl-choice.add { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; }
+  .pl-choice.add img { width: 28px; height: 28px; object-fit: contain; }
+  .pl-choice.strong { border-color: var(--pink); font-weight: 700; }
+  .pl-picks { display: grid; gap: 8px; }
+  .pl-pick { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--hair); border-radius: 12px; background: var(--bg); }
+  .pl-pick.fresh { animation: pl-fresh 1.6s ease-out; }
+  @keyframes pl-fresh { from { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(231, 163, 184, 0.45); } }
+  .pl-pick-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+  .pl-pick-name { display: flex; align-items: center; gap: 8px; font-weight: 700; min-width: 0; }
+  .pl-pick-name img { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; flex: none; }
+  .pl-x { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--rule); background: none; color: var(--muted); font-size: 1.3rem; line-height: 1; cursor: pointer; }
+  .pl-x:hover { color: #e59a90; border-color: #e59a90; }
+  .pl-wh { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .pl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
-  .pl-grid .wide { grid-column: 1 / -1; }
+  .pl-grid .wide, .pl-card > label.wide { grid-column: 1 / -1; }
+  .pl-note { padding: 12px 14px; border-radius: 12px; background: rgba(231, 163, 184, 0.12); border: 1px solid var(--pink); font-size: 0.92rem; }
+  .pl-warn { padding: 10px 12px; border-radius: 10px; border: 1px solid #ff9a9a; color: #ffc4c4; font-size: 0.9rem; }
   .link-btn { background: none; border: 0; color: var(--pink); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; justify-self: start; text-align: left; }
   .del { color: #e59a90 !important; border-color: #e59a90 !important; }
   .file-btn { justify-self: start; cursor: pointer; }
   .pl-acts { display: flex; flex-wrap: wrap; gap: 8px; }
-  .pl-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; }
+  .pl-nav { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
   .pl-nav #pl-next { margin-left: auto; }
+  #pl-skip { font-size: 0.88rem; text-align: center; }
+  .pl-nav [hidden] { display: none; }
   .summary { color: var(--muted); font-size: 0.92rem; }
-  .pl-note { padding: 12px 14px; border-radius: 12px; background: rgba(231, 163, 184, 0.12); border: 1px solid var(--pink); font-size: 0.92rem; }
-  .pl-choice.add { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; }
-  .pl-choice.add img { width: 28px; height: 28px; object-fit: contain; }
-  .pl-choice.strong { border-color: var(--pink); font-weight: 700; }
-  .pl-extra b { display: flex; align-items: center; gap: 10px; }
-  .pl-extra b img { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; }
-  .pl-extra .wide, .pl-wh { grid-column: 1 / -1; }
-  .pl-wh { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .hint { color: var(--muted); font-size: 0.88rem; }
   #pl-msg { color: var(--pink); min-height: 1.2em; margin-top: 8px; }
   @media (max-width: 900px) {
-    .planner { grid-template-columns: 1fr; }
-    .pl-stage { position: static; }
-    #pl-svg { max-height: 56vh; }
+    .planner { grid-template-columns: 1fr; gap: 14px; }
+    /* the picture stays in view while you make choices below it */
+    .pl-stage { position: sticky; top: 64px; z-index: 5; background: var(--bg); padding: 6px 0 6px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-bottom: 1px solid var(--hair); box-shadow: 0 8px 14px -10px rgba(0,0,0,.8); }
+    .pl-canvas { padding: 6px 70px; border-radius: 12px; position: relative; }
+    #pl-svg { max-height: 23vh; filter: none; }
+    .pl-bar { position: absolute; top: 12px; right: 22px; flex-direction: column; margin: 0; gap: 6px; }
+    .pl-bar .btn { padding: 6px 10px; font-size: 0.6rem; letter-spacing: 0.08em; }
+    .pl-stage .hint { display: none; }
+    #pl-fit { font-size: 0.82rem; margin-top: 4px; }
+    .pl-steps button:not(.on) span { display: none; }
+    .pl-steps { scroll-margin-top: calc(64px + 25vh + 40px); }
+    .pl-nav { position: sticky; bottom: 0; z-index: 4; background: var(--bg); padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); margin-top: 6px; border-top: 1px solid var(--hair); }
+    .pl-kinds { grid-template-columns: 1fr; }
+    .pl-starters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pl-card { padding: 16px; }
   }
 </style>
 </head>
@@ -94,9 +119,9 @@
     <div class="wrap">
       <img class="flying-pig" src="images/flying-pig.webp" alt="">
       <span class="eyebrow">Plan it your way</span>
-      <h1>Shadow Box <em>Planner</em></h1>
+      <h1>Shadow Box &amp; Frame <em>Planner</em></h1>
       <div class="rule-orn" aria-hidden="true"><span></span></div>
-      <p>Plan your shadow box in a few easy steps: pick the box, add your items, word the plate, and we lay it out for you. It's just a starting point. We frame almost anything (jackets and uniforms, guidons, jerseys and more), so if something isn't listed, add it anyway or tell us in your order.</p>
+      <p>Sketch your shadow box or frame in a few easy steps. Start from one of our ideas or from scratch, and we lay it out for you. It doesn't have to be finished: we frame almost anything, in any size, and we'll work out the details with you.</p>
     </div>
     <svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 120 60, 240 0, 360 30 S 600 60, 720 30 S 960 0, 1080 30 S 1320 60, 1440 30 V60 H0 Z" fill="#141112"/></svg>
   </section>
@@ -110,7 +135,7 @@
           <button class="btn ghost sm" id="pl-clear" type="button">Start Over</button>
         </div>
         <p id="pl-fit" role="status"></p>
-        <p class="hint" style="text-align:center">Everything is shown at its real size in the box you pick.</p>
+        <p class="hint" style="text-align:center">Everything is drawn at its real size.</p>
       </div>
 
       <div class="pl-panel">
@@ -118,6 +143,7 @@
         <div class="pl-card" id="pl-step"></div>
         <div class="pl-nav">
           <button class="btn ghost" id="pl-back" type="button">Back</button>
+          <button class="link-btn" id="pl-skip" type="button">Not sure? Skip ahead</button>
           <button class="btn" id="pl-next" type="button">Next</button>
         </div>
         <p id="pl-msg" role="status"></p>

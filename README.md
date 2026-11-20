@@ -267,16 +267,17 @@ On the preview site's admin page, **Versions** shows what's waiting to go live, 
 
 One-time setup: a GitHub fine-grained token for `the-whimsical-pig/whimsical-pig` with **Contents: Read and write**, saved as the secret `GITHUB_TOKEN` on the preview Worker (the tab walks you through it).
 
-## Shadow Box Planner (`planner.html`, `planner.js`, `planner-defaults.js`)
-Six short steps: what it's for, the box, add your items, the plate, arrange, send. Items are plain, common-size blanks (folded flag, medal, ribbon rack, rank, badge, patch, photo, coin, dog tags, jacket, guidon, certificate…), each with sizes to pick from; customers can type any other size, and **Something else** adds anything at all with its own name, shape and size. The page says plainly that these are only for planning and the shop frames almost anything.
+## Shadow Box & Frame Planner (`planner.html`, `planner.js`, `planner-defaults.js`)
+Six short steps: **Start** (shadow box or flat frame, then one of the shop's starter ideas or from scratch), **Size & colors** (any listed size or a custom one typed in, background/backing, frame, and for frames a mat), **Your items**, **The plate**, **Arrange**, **Send it**. "Not sure? Skip ahead" on every step jumps to the end, where customers can just write what they have in mind. The page says plainly it's only for planning and the shop frames almost anything, in any size.
 
-Everything is drawn at its real size, nothing can be stretched, and items can't be dragged outside the box. The planner lays everything out (neat rows first; if that's too full, it tucks smaller things in beside the big ones). If things still don't fit, it offers the smallest box on the list where they do.
+Items are plain, common-size blanks, each with sizes to pick from; customers can type any other size, and **Something else** adds anything with its own name, shape and size. In frame mode only items marked "fits a flat frame" are offered. Everything is drawn at its real size and keeps a set distance from the edge (0.75 in to start). The planner lays everything out (neat rows, or packed tighter when full) and offers a bigger size when things don't fit. Dragging only works on the Arrange step, so phones can scroll normally; on phones the picture stays at the top while choices scroll below.
 
-**Admin → Shadow Box Planner** controls all of it, and saves to the site settings as `planner` (sent in `/api/site`):
-- **Items**: add, rename, remove or reorder; pick the group (decides where it goes in the box and what's ticked on the order form), the plain shape and color; add or remove sizes; add a picture or a PDF (first page) of the real thing, which the planner shows instead of the plain shape. Pictures are stored as site photos of kind `planner`.
-- **Box Sizes & Colors**: box sizes, backgrounds, frames.
-- **Plates & Wording**: plate colors and widths, and the "what's it for" reasons with suggested plate wording.
+**Admin → Shadow Box Planner** controls all of it (saved with the site settings as `planner`, sent in `/api/site`):
+- **Items**: add, rename, remove or reorder; group, plain shape, color, "fits a flat frame", sizes; a picture or PDF (first page) of the real thing.
+- **Starter Ideas**: ready-made plans (type, size, items and their sizes, plate and wording).
+- **Sizes, Colors & Mats**: box sizes, space around the edge, backgrounds, frames, mats and mat borders.
+- **Plates & Wording**: plate colors and widths, and suggested plate wording (Retirement, PCS…).
 
 `planner-defaults.js` holds the starting lists, used until the shop saves its own. PDFs are read in the browser with PDF.js (`vendor/pdfjs/`, Apache-2.0), loaded only when a PDF is picked.
 
-The plan stays in the customer's browser. **Use This Plan in My Order** opens Start an Order with Military Framing → Shadow Box picked, the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (size, colors, every item and size, and the plate wording) in the order.
+The plan stays in the customer's browser. **Use This Plan in My Order** opens Start an Order (Military Framing → Shadow Box, or Framed Guidon or Flag for a frame) with the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (type, size, colors, mat, every item and size, the plate wording and their notes).

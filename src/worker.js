@@ -1466,7 +1466,7 @@ async function saveSite(request, env) {
 
 // Shadow Box Planner choices (Admin → Shadow Box Planner). Anything left out keeps the planner's starting list.
 const PLANNER_CATS = ["flag", "medal", "rank", "badge", "patch", "photo", "coin", "other"];
-const PLANNER_SHAPES = ["rect", "rounded", "circle", "oval", "triangle", "shield", "medal", "ribbon", "chevron", "tab", "pennant", "jacket", "tags", "star", "photo"];
+const PLANNER_SHAPES = ["rect", "rounded", "circle", "oval", "triangle", "shield", "medal", "ribbon", "chevron", "tab", "pennant", "jacket", "tags", "star", "openflag", "photo"];
 function cleanPlanner(p) {
   if (p === null) return { planner: null };
   if (!p || typeof p !== "object") return { error: "Couldn't read the planner choices." };
@@ -1485,6 +1485,10 @@ function cleanPlanner(p) {
       if (!out.sizes.length) throw new Error("Keep at least one box size.");
     }
     for (const [k, what] of [["backgrounds", "backgrounds"], ["frames", "frames"], ["plateColors", "plate colors"]]) { const v = named(p[k], what); if (v) out[k] = v; }
+    if (p.mats !== undefined) { const l = list(p.mats, 40, "mats"); out.mats = l.map(o => ({ name: cleanText(o && o.name, 30), color: color(o && o.color) })).filter((o, i, all) => o.name && o.color && all.findIndex(x => x.name === o.name) === i); }
+    const matWidths = list(p.matWidths, 12, "mat widths");
+    if (matWidths) { out.matWidths = [...new Set(matWidths.map(w => String(inch(w) || "")).filter(w => w && +w <= 8))]; if (!out.matWidths.length) throw new Error("Keep at least one mat width."); }
+    if (p.edge !== undefined) { const e = Math.round(parseFloat(p.edge) * 100) / 100; if (!(e >= 0 && e <= 4)) throw new Error("Space around the edge should be 0 to 4 inches."); out.edge = e; }
     const widths = list(p.plateWidths, 20, "plate widths");
     if (widths) { out.plateWidths = [...new Set(widths.map(w => String(inch(w) || "")).filter(w => w && +w >= 1 && +w <= 36))]; if (!out.plateWidths.length) throw new Error("Keep at least one plate width."); }
     const purposes = list(p.purposes, 20, "reasons");
@@ -1496,8 +1500,15 @@ function cleanPlanner(p) {
         .filter(z => z.w && z.h).map(z => ({ ...z, label: z.label || `${z.w} × ${z.h} in` }));
       return { id: /^[\w-]{1,24}$/.test(it.id || "") ? it.id : "i" + (i + 1) + "-" + crypto.randomUUID().slice(0, 4), name: cleanText(it.name, 40),
         cat: PLANNER_CATS.includes(it.cat) ? it.cat : "other", shape: PLANNER_SHAPES.includes(it.shape) ? it.shape : "rect",
-        color: color(it.color) || "#888888", photo: Math.max(0, parseInt(it.photo, 10) || 0), sizes };
+        color: color(it.color) || "#888888", flat: !!it.flat, photo: Math.max(0, parseInt(it.photo, 10) || 0), sizes };
     }).filter(it => it && it.name && it.sizes.length);
+    const starters = list(p.starters, 30, "starter ideas");
+    if (starters) out.starters = starters.map(st => st && typeof st === "object" && ({
+      name: cleanText(st.name, 40), kind: st.kind === "frame" ? "frame" : "shadowbox",
+      size: /^\d{1,2}(\.\d{1,2})?x\d{1,2}(\.\d{1,2})?$/.test(String(st.size || "")) ? String(st.size) : "16x20", wide: !!st.wide,
+      purpose: cleanText(st.purpose, 30), plate: st.plate !== false,
+      items: (Array.isArray(st.items) ? st.items : []).slice(0, 40).filter(u => u && /^[\w-]{1,24}$/.test(u.item || "")).map(u => ({ item: u.item, size: Math.min(11, Math.max(0, parseInt(u.size, 10) || 0)) })),
+    })).filter(st => st && st.name);
     return { planner: out };
   } catch (err) { return { error: err.message }; }
 }
