@@ -258,7 +258,7 @@
     }
     return s;
   }
-  let selected = null;
+  let selected = null, big = false;
   // The whole picture as SVG markup: frame, (mat), background, items
   function picture(forExport, small) {
     const [Wo, Ho] = outerIn(), W = Wo * IN, H = Ho * IN, mo = matOff() * IN, [Wi, Hi] = boxIn();
@@ -292,14 +292,17 @@
     const pic = picture(forExport);
     svg.setAttribute("viewBox", pic.viewBox);
     svg.innerHTML = pic.s;
-    svg.classList.toggle("live", plan.step === ARRANGE);
+    svg.classList.toggle("live", plan.step === ARRANGE || big);
     const { list, fits } = pic;
-    const big = list.filter(i => i.tooBig).map(i => i.name), tip = !fits && list.length ? bestSize(list) : null;
+    if (big) { const it = list.find(i => i.key === selected);
+      $("pl-bigsel").textContent = it ? it.name : "Drag things to move them. Tap one to turn it or take it out.";
+      document.querySelectorAll("[data-big=turn], [data-big=remove]").forEach(b => { b.disabled = !it; }); }
+    const over = list.filter(i => i.tooBig).map(i => i.name), tip = !fits && list.length ? bestSize(list) : null;
     const same = tip && !plan.custom && tip.size === plan.size && tip.wide === plan.wide;
     const offer = !tip ? "" : `<button type="button" class="link-btn" data-size="${tip.size}" data-wide="${tip.wide ? 1 : ""}">${same ? "Arrange for me again"
       : `Use ${tip.size.replace("x", " × ")}${tip.wide ? " wide" : tip.size === plan.size ? " tall" : ""}`}</button>`;
     const custom = "or type any size in step 2 (we build odd sizes too).";
-    $("pl-fit").innerHTML = big.length ? `${esc(big.join(", "))} won't fit in a ${sizeName()} ${KINDS[plan.kind]}. ${offer ? offer + " " + custom : "Pick a bigger size, " + custom}`
+    $("pl-fit").innerHTML = over.length ? `${esc(over.join(", "))} won't fit in a ${sizeName()} ${KINDS[plan.kind]}. ${offer ? offer + " " + custom : "Pick a bigger size, " + custom}`
       : !fits && list.length ? (same ? `Some things overlap. ${offer}` : `Things are crowded, so some overlap. ${offer ? offer + " " + custom : "Try taking something out, " + custom}`) : "";
     return list;
   }
@@ -397,8 +400,8 @@
         <p class="hint">Leave any line blank, or skip ahead and tell us later. We'll send you a proof of the wording before we engrave.</p>` : ""}`;
   }
   function stepArrange() {
-    return `<p class="hint">We've laid it out for you. Drag anything to move it; it stays inside, clear of the edge. Tap an item to turn it or take it out.</p>
-      <div class="pl-acts"><button type="button" class="btn ghost sm" data-auto>Arrange for Me Again</button></div>
+    return `<p class="hint">We've laid it out for you. Drag anything to move it; it stays inside, clear of the edge. Tap an item to turn it or take it out. On a phone, <b>Bigger View</b> makes this much easier.</p>
+      <div class="pl-acts"><button type="button" class="btn sm" data-openbig>Bigger View</button><button type="button" class="btn ghost sm" data-auto>Arrange for Me Again</button></div>
       <div id="pl-sel"></div>`;
   }
   function stepSend() {
@@ -425,7 +428,35 @@
     box.innerHTML = it ? `<div class="pl-pick"><div class="pl-pick-top"><span class="pl-pick-name">${esc(it.name)}</span><button type="button" class="btn ghost sm" data-turn>Turn</button><button type="button" class="btn ghost sm del" data-remove>Take Out</button></div></div>` : "";
   }
   function update(step) { save(); render(); if (step) drawStep(); }
-  const go = n => { plan.step = n; update(true); $("pl-steps").scrollIntoView({ behavior: "smooth", block: "start" }); };
+  // Show the new step just below whatever stays stuck at the top (header, banners, and on phones the picture)
+  const go = n => {
+    plan.step = n; update(true);
+    const bars = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--bars")) || 0, st = document.querySelector(".pl-stage");
+    const off = innerWidth <= 900 ? 64 + bars + st.offsetHeight : 100 + bars;
+    scrollTo({ top: $("pl-steps").getBoundingClientRect().top + scrollY - off - 8, behavior: "smooth" });
+  };
+
+  // ---------- arranging ----------
+  function rearrange() { remember(); plan.moved = false; plan.pos = {}; selected = null; update(true); }
+  function turn() {
+    remember();
+    if (!plan.moved) { for (const i of render()) plan.pos[i.key] = { ...i.p }; plan.moved = true; }
+    const cur = plan.pos[selected] || {}; plan.pos[selected] = { ...cur, r: ((cur.r || 0) + 90) % 360 }; save(); render(); drawSel();
+  }
+  function takeOut() {
+    remember(); if (selected === "plate") plan.plate.on = false; else plan.picks = plan.picks.filter(p => "p" + p.id !== selected);
+    delete plan.pos[selected]; selected = null; update(true);
+  }
+  // Bigger View: the picture fills the screen (handy on phones), and things can be moved there
+  function bigView(on) {
+    big = on; $("pl-big").closest(".pl-stage").classList.toggle("big", on); document.body.classList.toggle("pl-big-open", on);
+    if (!on) selected = plan.step === ARRANGE ? selected : null;
+    render(); if (plan.step === ARRANGE) drawSel();
+  }
+  $("pl-big").onclick = () => bigView(true);
+  $("pl-bigbar").onclick = e => { const a = e.target.dataset.big; if (!a) return;
+    if (a === "done") bigView(false); if (a === "auto") rearrange(); if (a === "turn" && selected) turn(); if (a === "remove" && selected) takeOut(); };
+  addEventListener("keydown", e => { if (e.key === "Escape" && big) bigView(false); });
 
   // ---------- adding and changing items ----------
   const pickFrom = (c, size = 0) => { const k = Math.min(Math.max(0, size | 0), c.sizes.length - 1), s = c.sizes[k] || { w: 4, h: 4 };
@@ -440,7 +471,7 @@
       remember();
       if (d.starter === "blank") { const keep = plan.kind; plan = blank(); plan.kind = keep; }
       else { const st = OPT.starters[+d.starter]; if (!st) return; plan = planFromStarter(st); }
-      selected = null; plan.step = 1; update(true); msg(d.starter === "blank" ? "" : `Started from “${OPT.starters[+d.starter].name}”. Change anything you like.`); return;
+      selected = null; go(1); msg(d.starter === "blank" ? "" : `Started from “${OPT.starters[+d.starter].name}”. Change anything you like.`); return;
     }
     if (d.bg) { remember(); plan.bg = d.bg; return update(true); }
     if (d.frame) { remember(); plan.frame = d.frame; return update(true); }
@@ -453,11 +484,10 @@
     if (d.purpose) { remember(); const pl = plan.plate, old = (OPT.purposes.find(x => x.name === pl.purpose) || {}).text || "";
       pl.purpose = d.purpose; const text = (OPT.purposes.find(x => x.name === d.purpose) || {}).text || "";
       if (!pl.message || pl.message === old) pl.message = text; return update(true); }
-    if ("auto" in d) { remember(); plan.moved = false; plan.pos = {}; selected = null; return update(true); }
-    if ("turn" in d && selected) { remember();
-      if (!plan.moved) { for (const i of render()) plan.pos[i.key] = { ...i.p }; plan.moved = true; }
-      const cur = plan.pos[selected] || {}; plan.pos[selected] = { ...cur, r: ((cur.r || 0) + 90) % 360 }; save(); return drawSel(); }
-    if ("remove" in d && selected) { remember(); if (selected === "plate") plan.plate.on = false; else plan.picks = plan.picks.filter(p => "p" + p.id !== selected); delete plan.pos[selected]; selected = null; return update(true); }
+    if ("auto" in d) return rearrange();
+    if ("openbig" in d) return bigView(true);
+    if ("turn" in d && selected) return turn();
+    if ("remove" in d && selected) return takeOut();
   });
   panel.addEventListener("input", e => {
     const el = e.target, d = el.dataset, v = el.type === "checkbox" ? el.checked : el.value;
@@ -504,12 +534,12 @@
   const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return { x: q.x / IN - matOff(), y: q.y / IN - matOff() }; };
   svg.addEventListener("pointerdown", e => {
     const g = e.target.closest(".pl-item");
-    if (plan.step !== ARRANGE) { if (g && e.pointerType === "mouse") { selected = g.dataset.key; go(ARRANGE); } return; }
+    if (plan.step !== ARRANGE && !big) { if (g && e.pointerType === "mouse") { selected = g.dataset.key; go(ARRANGE); } return; }
     if (!g) { selected = null; render(); drawSel(); return; }
     const it = render().find(i => i.key === g.dataset.key); if (!it) return;
     selected = it.key;
     const p = pt(e); drag = { it, dx: p.x - it.p.x, dy: p.y - it.p.y, moved: false };
-    svg.setPointerCapture(e.pointerId); e.preventDefault(); drawSel();
+    svg.setPointerCapture(e.pointerId); e.preventDefault(); render(); drawSel();
   });
   svg.addEventListener("pointermove", e => {
     if (!drag) return;
