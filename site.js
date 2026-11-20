@@ -139,6 +139,24 @@ function addedTiles(container, d) {
   }
 }
 
+// Announcement bars sit together at the very top and stay on screen while you scroll.
+// The header sticks just below them (it reads their height from --bars).
+function barStack() {
+  let stack = document.querySelector(".announce-stack");
+  if (stack) return stack;
+  stack = document.createElement("div");
+  stack.className = "announce-stack";
+  const before = document.querySelector(".utility") || document.getElementById("site-header") || document.body.firstChild;
+  before.parentNode.insertBefore(stack, before);
+  const measure = () => document.documentElement.style.setProperty("--bars", stack.offsetHeight + "px");
+  if (window.ResizeObserver) new ResizeObserver(measure).observe(stack); else addEventListener("resize", measure);
+  measure();
+  // on phones the bars get a little smaller once you scroll, to leave room for the page
+  const shrink = () => stack.classList.toggle("scrolled", scrollY > 160);
+  addEventListener("scroll", shrink, { passive: true }); shrink();
+  return stack;
+}
+
 function renderBanners(list) {
   const page = document.body.dataset.page || "";
   const mine = list.filter(b => b.pages.includes("all") || b.pages.includes(page));
@@ -156,8 +174,9 @@ function renderBanners(list) {
       a.textContent = (b.button || "Learn more") + " →";
       bar.appendChild(a);
     }
-    if (utility) utility.before(bar); else if (header) header.before(bar);
+    barStack().appendChild(bar);
   }
+  void utility; void header;
   const main = document.querySelector("main");
   const feats = mine.filter(b => b.kind === "feature");
   if (!main || !feats.length) return;
@@ -273,7 +292,7 @@ function buildHeader(current) {
     const bar = document.createElement("div");
     bar.className = "announce";
     bar.textContent = S.announcement;
-    el.parentNode.insertBefore(bar, el);
+    barStack().appendChild(bar);
   }
   el.insertAdjacentHTML("beforebegin", `
     <div class="utility">

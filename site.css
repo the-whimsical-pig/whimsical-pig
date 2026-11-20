@@ -67,7 +67,13 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.1; lett
   border-bottom: 3px solid #000;
 }
 
-/* Banners from the admin page */
+/* Banners from the admin page: they stay at the top of the screen while you scroll */
+.announce-stack { position: sticky; top: 0; z-index: 30; }
+.announce-stack:empty { display: none; }
+@media (max-width: 900px) {
+  .announce-stack.scrolled .announce { padding: 8px 14px; font-size: 0.9rem; }
+  .announce-stack.scrolled .announce.style-alert { font-size: 0.95rem; padding: 9px 14px; }
+}
 .announce { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 16px; }
 .announce a { color: inherit; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .announce.style-black { background: var(--ink); color: var(--pink); border-bottom: 3px solid var(--pink); }
@@ -109,7 +115,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.1; lett
 /* ---------- Header ---------- */
 header.site {
   position: sticky;
-  top: 0;
+  top: var(--bars, 0px);
   z-index: 20;
   background: rgba(26, 24, 22, 0.97);
   border-bottom: 1px solid var(--rule);
@@ -460,6 +466,7 @@ nav.main a.call { margin-left: 4px; padding: 10px 12px; }
     display: none; position: absolute; left: 0; right: 0; top: 100%;
     background: #141112; border-bottom: 2px solid var(--pink);
     box-shadow: 0 18px 30px rgba(0, 0, 0, 0.5);
+    max-height: calc(100vh - 64px - var(--bars, 0px)); overflow-y: auto;
   }
   header.site.open nav.main { display: block; }
   nav.main ul { flex-direction: column; align-items: stretch; gap: 0; max-width: 1140px; margin: 0 auto; padding: 6px 24px 20px; }
