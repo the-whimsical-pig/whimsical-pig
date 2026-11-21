@@ -258,6 +258,13 @@
     }
     return s;
   }
+  // A small picture of an item, for buttons and lists
+  let iconN = 0;
+  function icon(o) {
+    const w = (+o.w || 4) * IN, h = (+o.h || 4) * IN, pad = Math.max(w, h) * 0.08;
+    const it = { key: "ic" + iconN++, shape: o.shape, w: +o.w || 4, h: +o.h || 4, color: o.color, pic: o.src || picUrl(o.photo), fit: o.src ? "slice" : "meet", lines: ["", ""], name: "" };
+    return `<svg class="pl-ic" viewBox="${-w / 2 - pad} ${-h / 2 - pad} ${w + 2 * pad} ${h + 2 * pad}" aria-hidden="true">${drawItem(it)}</svg>`;
+  }
   let selected = null, big = false;
   // The whole picture as SVG markup: frame, (mat), background, items
   function picture(forExport, small) {
@@ -268,30 +275,48 @@
     let s = `<defs><linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0d27a"/><stop offset=".55" stop-color="#8a6a24"/><stop offset="1" stop-color="#f0d27a"/></linearGradient>
       <radialGradient id="bg" cx=".45" cy=".35" r=".9"><stop offset="0" stop-color="${shade(bg.color, 0.12)}"/><stop offset="1" stop-color="${shade(bg.color, -0.25)}"/></radialGradient>
       <linearGradient id="fr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${shade(fr.color, 0.35)}"/><stop offset=".5" stop-color="${shade(fr.color, -0.2)}"/><stop offset="1" stop-color="${shade(fr.color, 0.35)}"/></linearGradient>
-      <linearGradient id="dt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+      <linearGradient id="dt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
       <linearGradient id="dl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+      <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".09"/><stop offset=".6" stop-color="#fff" stop-opacity=".03"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <radialGradient id="matlight" cx=".35" cy=".2" r="1"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity=".12"/></radialGradient>
       <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0.6" dy="1" stdDeviation="0.9" flood-opacity=".55"/></filter></defs>`;
-    s += `<rect x="${-F}" y="${-F}" width="${W + 2 * F}" height="${H + 2 * F}" fill="url(#fr)"/>`;
-    s += `<rect x="${-F * 0.25}" y="${-F * 0.25}" width="${W + F * 0.5}" height="${H + F * 0.5}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="${F * 0.12}"/>`;
-    if (mat) s += `<rect width="${W}" height="${H}" fill="${mat.color}"/><rect x="${mo - 1}" y="${mo - 1}" width="${W - 2 * mo + 2}" height="${H - 2 * mo + 2}" fill="${shade(mat.color, light(mat.color) ? -0.12 : 0.25)}"/>`;
-    s += `<g transform="translate(${mo} ${mo})"><rect width="${Wi * IN}" height="${Hi * IN}" fill="url(#bg)"/>`;
-    // a shadow box is deep: its inside walls throw a shadow along the top and left
-    if (deep) s += `<rect width="${Wi * IN}" height="${Math.min(Hi * IN, 12)}" fill="url(#dt)"/><rect width="${Math.min(Wi * IN, 10)}" height="${Hi * IN}" fill="url(#dl)"/>`;
-    s += `<rect width="${Wi * IN}" height="${Hi * IN}" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="${deep ? 2.5 : 0.8}"/>`;
+    // The frame: four mitered sides lit from the top left, a sheen, a dark outer edge and a thin lip inside
+    const side = (pts, amt) => `<polygon points="${pts}" fill="${shade(fr.color, amt)}"/>`;
+    s += side(`${-F},${-F} ${W + F},${-F} ${W},0 0,0`, 0.28) + side(`${-F},${-F} 0,0 0,${H} ${-F},${H + F}`, 0.08) +
+      side(`${W + F},${-F} ${W + F},${H + F} ${W},${H} ${W},0`, -0.22) + side(`${-F},${H + F} 0,${H} ${W},${H} ${W + F},${H + F}`, -0.38);
+    s += `<rect x="${-F}" y="${-F}" width="${W + 2 * F}" height="${H + 2 * F}" fill="url(#fr)" opacity=".35"/>`;
+    s += `<rect x="${-F * 0.62}" y="${-F * 0.62}" width="${W + F * 1.24}" height="${H + F * 1.24}" fill="none" stroke="${shade(fr.color, 0.45)}" stroke-opacity=".5" stroke-width="${F * 0.05}"/>`;
+    s += `<rect x="${-F + 0.3}" y="${-F + 0.3}" width="${W + 2 * F - 0.6}" height="${H + 2 * F - 0.6}" fill="none" stroke="#000" stroke-opacity=".7" stroke-width="0.6"/>`;
+    s += `<rect x="-1.2" y="-1.2" width="${W + 2.4}" height="${H + 2.4}" fill="none" stroke="${shade(fr.color, -0.55)}" stroke-width="2.4"/>`;
+    if (mat) {   // the mat, with its white bevel around the opening
+      s += `<rect width="${W}" height="${H}" fill="${mat.color}"/><rect width="${W}" height="${H}" fill="url(#matlight)"/>`;
+      s += `<rect x="${mo - 1.6}" y="${mo - 1.6}" width="${W - 2 * mo + 3.2}" height="${H - 2 * mo + 3.2}" fill="${light(mat.color) ? "#fffdf6" : shade(mat.color, 0.55)}"/>`;
+    }
+    const wi = Wi * IN, hi = Hi * IN;
+    s += `<g transform="translate(${mo} ${mo})"><rect width="${wi}" height="${hi}" fill="url(#bg)"/>`;
+    // a shadow box is deep: you see its inside walls, darker at the top where the light can't reach
+    if (deep) {
+      const d = Math.min(6, wi / 8, hi / 8), wall = (pts, amt) => `<polygon points="${pts}" fill="${shade(bg.color, amt)}"/>`;
+      s += wall(`0,0 ${wi},0 ${wi - d},${d} ${d},${d}`, -0.55) + wall(`0,0 ${d},${d} ${d},${hi - d} 0,${hi}`, -0.38) +
+        wall(`${wi},0 ${wi},${hi} ${wi - d},${hi - d} ${wi - d},${d}`, -0.18) + wall(`0,${hi} ${d},${hi - d} ${wi - d},${hi - d} ${wi},${hi}`, 0.1);
+      s += `<rect x="${d}" y="${d}" width="${wi - 2 * d}" height="${Math.min(hi / 3, 14)}" fill="url(#dt)"/>`;
+    } else s += `<rect width="${wi}" height="${hi}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="0.8"/>`;
     const { list, fits } = placed();
     for (const it of list) {
       const w = it.w * IN, h = it.h * IN;
       s += `<g data-key="${esc(it.key)}" class="pl-item" transform="translate(${it.p.x * IN} ${it.p.y * IN}) rotate(${it.p.r || 0})" filter="url(#sh)">${drawItem(it)}<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" fill="transparent"/></g>`;
       if (!forExport && (selected === it.key || it.tooBig)) s += `<g transform="translate(${it.p.x * IN} ${it.p.y * IN}) rotate(${it.p.r || 0})" pointer-events="none"><rect x="${-w / 2 - 2}" y="${-h / 2 - 2}" width="${w + 4}" height="${h + 4}" fill="none" stroke="${it.tooBig ? "#ff6b6b" : "#e7a3b8"}" stroke-width="${small ? 3 : 1.2}" stroke-dasharray="4 3"/></g>`;
     }
+    // glass: a soft reflection across the front
+    s += `<polygon points="0,0 ${wi * 0.55},0 ${wi * 0.2},${hi} 0,${hi}" fill="url(#glass)" pointer-events="none"/>`;
     s += "</g>";
-    if (!forExport && !small) s += `<text x="${W / 2}" y="${H + F * 0.62}" font-size="${F * 0.42}" fill="#fff" fill-opacity=".75" text-anchor="middle" font-family="Lato, Arial, sans-serif">${sizeName()} ${KINDS[plan.kind]}</text>`;
     return { s, list, fits, viewBox: `${-F} ${-F} ${W + 2 * F} ${H + 2 * F}`, w: W + 2 * F, h: H + 2 * F };
   }
   function render(forExport) {
     const pic = picture(forExport);
     svg.setAttribute("viewBox", pic.viewBox);
     svg.innerHTML = pic.s;
+    $("pl-dims").innerHTML = `<b>${sizeName()}</b> ${KINDS[plan.kind]}${plan.kind === "frame" && plan.mat ? `, ${esc(plan.mat.toLowerCase())} mat` : ""}`;
     svg.classList.toggle("live", plan.step === ARRANGE || big);
     const { list, fits } = pic;
     if (big) { const it = list.find(i => i.key === selected);
@@ -329,13 +354,20 @@
   // ---------- the steps ----------
   const STEPS = [["Start", stepStart], ["Size & colors", stepBox], ["Your items", stepItems], ["The plate", stepPlate], ["Arrange", stepArrange], ["Send it", stepSend]];
   const ARRANGE = 4, SEND = 5;
-  const ANYTHING = `<p class="pl-note"><b>This is just to help you plan.</b> We frame almost anything: jackets and uniforms, lots of guidons, jerseys, hats, knives, artwork and more, in any size. If yours isn't listed, add it under <b>Something else</b>, or skip ahead and tell us about it.</p>`;
+  const ANYTHING = `<p class="pl-note"><b>Just for planning.</b> We frame almost anything, in any size: jackets, guidons, jerseys, hats and more. Not listed? Use <b>Something else</b>, or skip ahead and tell us.</p>`;
+  const KIND_ART = {
+    shadowbox: `<svg class="pl-kind-art" viewBox="0 0 64 52" aria-hidden="true"><rect x="2" y="2" width="60" height="48" rx="2" fill="#5a3a24"/><rect x="9" y="9" width="46" height="34" fill="#231c1a"/>
+      <polygon points="9,9 55,9 49,15 15,15" fill="#0e0b0a"/><polygon points="9,9 15,15 15,37 9,43" fill="#15110f"/><polygon points="55,9 55,43 49,37 49,15" fill="#2c2321"/><polygon points="9,43 15,37 49,37 55,43" fill="#3a2f2b"/>
+      <polygon points="22,31 42,31 32,20" fill="#2a3a7a" stroke="#fff" stroke-width=".8"/><circle cx="20" cy="25" r="2.2" fill="#d9b25a"/><circle cx="44" cy="25" r="2.2" fill="#d9b25a"/></svg>`,
+    frame: `<svg class="pl-kind-art" viewBox="0 0 64 52" aria-hidden="true"><rect x="2" y="2" width="60" height="48" rx="1" fill="#2a2420"/><rect x="5" y="5" width="54" height="42" fill="#f3efe4"/>
+      <rect x="15" y="13" width="34" height="26" fill="#fffdf6"/><rect x="16" y="14" width="32" height="24" fill="#c8102e"/><rect x="16" y="26" width="32" height="12" fill="#fff"/><path d="M48 14 L42 26 L48 38" fill="#f3efe4"/></svg>`,
+  };
   function stepStart() {
     const starters = (OPT.starters || []).filter(s => (s.kind === "frame" ? "frame" : "shadowbox") === plan.kind);
     return `<p class="sub">What are we making?</p>
       <div class="pl-kinds">
-        <button type="button" class="pl-kind${plan.kind === "shadowbox" ? " on" : ""}" data-kind="shadowbox"><b>Shadow box</b><span>Deep, for things with thickness: medals, folded flags, coins, jackets and keepsakes.</span></button>
-        <button type="button" class="pl-kind${plan.kind === "frame" ? " on" : ""}" data-kind="frame"><b>Frame</b><span>Flat, for certificates, photos, guidons, open flags and prints. Can have a mat.</span></button>
+        <button type="button" class="pl-kind${plan.kind === "shadowbox" ? " on" : ""}" data-kind="shadowbox">${KIND_ART.shadowbox}<b>Shadow box</b><span>Deep, for things with thickness: medals, folded flags, coins, jackets and keepsakes.</span></button>
+        <button type="button" class="pl-kind${plan.kind === "frame" ? " on" : ""}" data-kind="frame">${KIND_ART.frame}<b>Frame</b><span>Flat, for certificates, photos, guidons, open flags and prints. Can have a mat.</span></button>
       </div>
       <p class="sub">Start from an idea, or from scratch</p>
       <div class="pl-starters">${starters.map(st => `<button type="button" class="pl-starter${plan.start === st.name ? " on" : ""}" data-starter="${esc(OPT.starters.indexOf(st))}">${thumb(st)}<span>${esc(st.name)}</span></button>`).join("")}
@@ -361,25 +393,26 @@
     const thick = frame ? plan.picks.filter(p => !p.custom && !(OPT.items.find(i => i.id === p.item) || {}).flat) : [];
     const shapeOpts = cur => OPT.shapes.filter(s => s.id !== "photo").map(s => `<option value="${s.id}"${s.id === cur ? " selected" : ""}>${esc(s.name)}</option>`).join("");
     return `${ANYTHING}
-      <p class="sub">In your ${KINDS[plan.kind]}${plan.picks.length ? ` (${plan.picks.length})` : ""}</p>
+      <p class="sub">In your ${KINDS[plan.kind]}${plan.picks.length ? ` <span class="count">${plan.picks.length}</span>` : ""}</p>
       ${thick.length ? `<p class="pl-warn">${esc(thick.map(p => p.name).join(", "))} ${thick.length > 1 ? "are" : "is"} too thick for a flat frame. <button type="button" class="link-btn" data-kind="shadowbox">Make it a shadow box</button></p>` : ""}
       ${plan.picks.length ? "" : '<p class="hint">Nothing yet. Tap the items below to add them.</p>'}
-      <div class="pl-picks">${plan.picks.map(p => `<div class="pl-pick${p.id === fresh ? " fresh" : ""}" data-pk="${p.id}">
+      <div class="pl-picks">${pickGroups().map(g => { const p = g[0], n = g.length;
+        return `<div class="pl-pick${g.some(x => x.id === fresh) ? " fresh" : ""}" data-pk="${p.id}" data-group="${g.map(x => x.id).join(" ")}">
         <div class="pl-pick-top">
-          ${p.custom ? `<input data-pf="name" value="${esc(p.name)}" maxlength="40" placeholder="What is it? e.g. Jersey" aria-label="What is it?">`
-            : `<span class="pl-pick-name">${p.src ? `<img src="${p.src}" alt="">` : p.photo ? `<img src="${picUrl(p.photo)}?s=sm" alt="">` : ""}${esc(p.name)}</span>`}
+          <span class="pl-pick-ic">${icon(p)}</span>
+          ${p.custom ? `<input data-pf="name" value="${esc(p.name)}" maxlength="40" placeholder="What is it? e.g. Jersey" aria-label="What is it?">` : `<span class="pl-pick-name">${esc(p.name)}</span>`}
           <select data-pf="size" aria-label="Size">${p.sizes.map((s, i) => `<option value="${i}"${String(i) === String(p.size) ? " selected" : ""}>${esc(s.label)}</option>`).join("")}<option value="custom"${p.size === "custom" ? " selected" : ""}>${p.sizes.length ? "Other size…" : "Size in inches"}</option></select>
-          <button type="button" class="pl-x" data-pdel aria-label="Remove ${esc(p.name || "item")}">×</button>
+          <span class="pl-qty"><button type="button" data-less aria-label="One fewer">${n > 1 ? "−" : "×"}</button><b>${n}</b><button type="button" data-more aria-label="One more">+</button></span>
         </div>
         ${p.size === "custom" ? `<div class="pl-wh"><label>Width (in)<input type="number" min="0.25" max="72" step="0.25" data-pf="w" value="${esc(p.w)}"></label><label>Height (in)<input type="number" min="0.25" max="72" step="0.25" data-pf="h" value="${esc(p.h)}"></label></div>` : ""}
         ${p.custom ? `<div class="pl-wh"><label>Looks like<select data-pf="shape">${shapeOpts(p.shape)}</select></label><label>Color<input type="color" data-pf="color" value="${esc(p.color)}"></label></div>` : ""}
         ${p.shape === "photo" ? `<label class="link-btn file-btn">${p.src ? "Change photo" : "+ Add your photo (optional)"}<input type="file" accept="image/*" data-pf="src" hidden></label>`
           : WORDS_ON[p.shape] && !p.photo ? (p.words || p.wordsOpen ? `<input data-pf="words" value="${esc(p.words)}" maxlength="24" placeholder="Words on it, e.g. B CO 2-14" aria-label="Words on it">`
             : `<button type="button" class="link-btn" data-words>+ Add words on it</button>`) : ""}
-      </div>`).join("")}</div>
+      </div>`; }).join("")}</div>
       <p class="sub">Add ${plan.picks.length ? "more" : "items"}</p>
-      ${groups.map(([c, list]) => `<p class="mini">${esc(c.name)}</p><div class="pl-choices">${list.map(i => `<button type="button" class="pl-choice add" data-add="${esc(i.id)}">${i.photo ? `<img src="${picUrl(i.photo)}?s=sm" alt="">` : ""}+ ${esc(i.name)}</button>`).join("")}</div>`).join("")}
-      <div class="pl-choices"><button type="button" class="pl-choice add strong" data-add-custom>+ Something else (any size)</button></div>
+      ${groups.map(([c, list]) => `<p class="mini">${esc(c.name)}</p><div class="pl-adds">${list.map(i => `<button type="button" class="pl-add" data-add="${esc(i.id)}">${icon({ ...i, ...(i.sizes[0] || {}) })}<span>${esc(i.name)}</span><b aria-hidden="true">+</b></button>`).join("")}</div>`).join("")}
+      <div class="pl-adds"><button type="button" class="pl-add other" data-add-custom><span class="pl-ic plus">?</span><span>Something else<small>Any item, any size</small></span><b aria-hidden="true">+</b></button></div>
       ${frame ? '<p class="hint">Showing things that fit a flat frame. Medals, coins, folded flags and jackets need a shadow box.</p>' : ""}`;
   }
   function stepPlate() {
@@ -414,7 +447,7 @@
   function drawStep() {
     const n = plan.step;
     msg("");
-    $("pl-steps").innerHTML = STEPS.map(([t], i) => `<button type="button" class="${i === n ? "on" : i < n ? "done" : ""}" data-go="${i}"${i === n ? ' aria-current="step"' : ""}><b>${i + 1}</b><span>${esc(t)}</span></button>`).join("");
+    $("pl-steps").innerHTML = `<div class="pl-prog-bar">${STEPS.map(([t], i) => `<button type="button" class="${i === n ? "on" : i < n ? "done" : ""}" data-go="${i}"${i === n ? ' aria-current="step"' : ""} aria-label="Step ${i + 1}: ${esc(t)}"><i></i><span>${esc(t)}</span></button>`).join("")}</div>`;
     $("pl-step").innerHTML = `<span class="step">Step ${n + 1} of ${STEPS.length}</span><h2>${esc(STEPS[n][0])}</h2>${STEPS[n][1]()}`;
     $("pl-back").hidden = n === 0;
     $("pl-next").hidden = n === SEND;
@@ -461,6 +494,10 @@
   // ---------- adding and changing items ----------
   const pickFrom = (c, size = 0) => { const k = Math.min(Math.max(0, size | 0), c.sizes.length - 1), s = c.sizes[k] || { w: 4, h: 4 };
     return { id: uid(), item: c.id, cat: c.cat, name: c.name, shape: c.shape, color: c.color, photo: c.photo || 0, sizes: c.sizes.map(x => ({ ...x })), size: c.sizes.length ? k : "custom", w: s.w, h: s.h, words: "", src: "" }; };
+  // Identical items show as one row with a count
+  const sameKey = p => p.custom || p.src || p.words || p.wordsOpen || p.size === "custom" ? "u" + p.id : `${p.item}|${p.size}`;
+  function pickGroups() { const m = new Map(); for (const p of plan.picks) { const k = sameKey(p); if (!m.has(k)) m.set(k, []); m.get(k).push(p); } return [...m.values()]; }
+  const groupOf = el => { const row = el.closest("[data-group]"); if (!row) return []; const ids = row.dataset.group.split(" ").map(Number); return plan.picks.filter(p => ids.includes(p.id)); };
   const pickOf = el => { const row = el.closest("[data-pk]"); return row && plan.picks.find(p => p.id === +row.dataset.pk); };
   const panel = $("pl-step");
   panel.addEventListener("click", e => {
@@ -479,6 +516,8 @@
       msg(`Added ${c.name}. Change its size in the list above if you need to.`); const row = panel.querySelector(`[data-pk="${p.id}"]`); if (row && row.getBoundingClientRect().top < 60) row.scrollIntoView({ block: "center" }); return; }
     if ("addCustom" in d) { remember(); const p = { id: uid(), custom: true, item: "", cat: "other", name: "", shape: "rect", color: "#8a7f72", photo: 0, sizes: [], size: "custom", w: 6, h: 4, words: "", src: "" };
       plan.picks.push(p); fresh = p.id; update(true); fresh = null; const row = panel.querySelector(`[data-pk="${p.id}"]`); if (row) { row.scrollIntoView({ block: "center" }); row.querySelector("input").focus(); } return; }
+    if ("more" in d) { remember(); const p = pickOf(t), c = { ...p, id: uid(), sizes: p.sizes.map(x => ({ ...x })) }; plan.picks.splice(plan.picks.indexOf(groupOf(t).at(-1)) + 1, 0, c); return update(true); }
+    if ("less" in d) { remember(); const last = groupOf(t).at(-1); plan.picks = plan.picks.filter(x => x !== last); delete plan.pos["p" + last.id]; return update(true); }
     if ("pdel" in d) { remember(); const p = pickOf(t); plan.picks = plan.picks.filter(x => x !== p); delete plan.pos["p" + p.id]; return update(true); }
     if ("words" in d) { const p = pickOf(t); p.wordsOpen = true; drawStep(); const i = panel.querySelector(`[data-pk="${p.id}"] [data-pf=words]`); if (i) i.focus(); return; }
     if (d.purpose) { remember(); const pl = plan.plate, old = (OPT.purposes.find(x => x.name === pl.purpose) || {}).text || "";
@@ -499,7 +538,7 @@
     else if (d.pl) plan.plate[d.pl] = v;
     else if (d.pf) {
       const p = pickOf(el); if (!p) return;
-      if (d.pf === "size") { p.size = v === "custom" ? "custom" : +v; if (p.size !== "custom") { p.w = p.sizes[p.size].w; p.h = p.sizes[p.size].h; } }
+      if (d.pf === "size") for (const q of groupOf(el)) { q.size = v === "custom" ? "custom" : +v; if (q.size !== "custom") { q.w = q.sizes[q.size].w; q.h = q.sizes[q.size].h; } }
       else p[d.pf] = d.pf === "w" || d.pf === "h" ? Math.max(0, Math.min(72, +v || 0)) : v;
     }
     if (["sizeSel", "wide", "cw", "ch", "mat", "matW"].includes(d.f)) { plan.moved = false; plan.pos = {}; }   // a new size: lay it out again
