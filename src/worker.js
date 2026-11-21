@@ -1466,7 +1466,7 @@ async function saveSite(request, env) {
 
 // Shadow Box Planner choices (Admin → Shadow Box Planner). Anything left out keeps the planner's starting list.
 const PLANNER_CATS = ["flag", "medal", "rank", "badge", "patch", "photo", "coin", "other"];
-const PLANNER_SHAPES = ["rect", "rounded", "circle", "oval", "triangle", "shield", "medal", "ribbon", "chevron", "tab", "pennant", "jacket", "tags", "star", "openflag", "photo"];
+const PLANNER_SHAPES = ["rect", "rounded", "circle", "oval", "triangle", "shield", "medal", "ribbon", "chevron", "tab", "pennant", "jacket", "tags", "star", "openflag", "colors", "snowshoe", "photo"];
 function cleanPlanner(p) {
   if (p === null) return { planner: null };
   if (!p || typeof p !== "object") return { error: "Couldn't read the planner choices." };
@@ -1485,6 +1485,7 @@ function cleanPlanner(p) {
       if (!out.sizes.length) throw new Error("Keep at least one box size.");
     }
     for (const [k, what] of [["backgrounds", "backgrounds"], ["frames", "frames"], ["plateColors", "plate colors"]]) { const v = named(p[k], what); if (v) out[k] = v; }
+    if (p.borders !== undefined) { const l = list(p.borders, 20, "borders"); out.borders = l.map(o => ({ name: cleanText(o && o.name, 30), color: color(o && o.color) })).filter((o, i, all) => o.name && o.color && all.findIndex(x => x.name === o.name) === i); }
     if (p.mats !== undefined) { const l = list(p.mats, 40, "mats"); out.mats = l.map(o => ({ name: cleanText(o && o.name, 30), color: color(o && o.color) })).filter((o, i, all) => o.name && o.color && all.findIndex(x => x.name === o.name) === i); }
     const matWidths = list(p.matWidths, 12, "mat widths");
     if (matWidths) { out.matWidths = [...new Set(matWidths.map(w => String(inch(w) || "")).filter(w => w && +w <= 8))]; if (!out.matWidths.length) throw new Error("Keep at least one mat width."); }
@@ -1506,7 +1507,7 @@ function cleanPlanner(p) {
     if (starters) out.starters = starters.map(st => st && typeof st === "object" && ({
       name: cleanText(st.name, 40), kind: st.kind === "frame" ? "frame" : "shadowbox",
       size: /^\d{1,2}(\.\d{1,2})?x\d{1,2}(\.\d{1,2})?$/.test(String(st.size || "")) ? String(st.size) : "16x20", wide: !!st.wide,
-      purpose: cleanText(st.purpose, 30), plate: st.plate !== false,
+      purpose: cleanText(st.purpose, 30), plate: st.plate !== false, border: cleanText(st.border, 30), lines: !!st.lines,
       items: (Array.isArray(st.items) ? st.items : []).slice(0, 40).filter(u => u && /^[\w-]{1,24}$/.test(u.item || "")).map(u => ({ item: u.item, size: Math.min(11, Math.max(0, parseInt(u.size, 10) || 0)) })),
     })).filter(st => st && st.name);
     return { planner: out };

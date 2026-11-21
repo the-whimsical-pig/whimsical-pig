@@ -23,7 +23,7 @@
   const blank = () => ({ step: 0, kind: "shadowbox", start: "", size: "16x20", wide: false, custom: false, cw: 16, ch: 20,
     bg: OPT.backgrounds[0].name, frame: OPT.frames[0].name, mat: "", matW: OPT.matWidths.includes("2") ? "2" : OPT.matWidths[0], picks: [],
     plate: { on: true, purpose: "", color: OPT.plateColors[0].name, width: OPT.plateWidths.includes("8") ? "8" : OPT.plateWidths[0], rankname: "", position: "", unit: "", from: "", to: "", message: "", quote: "" },
-    notes: "", pos: {}, moved: false });
+    border: (OPT.borders[0] || {}).name || "", lines: false, notes: "", pos: {}, moved: false });
   let plan = load() || blank();
   function load() { try { const p = JSON.parse(localStorage.getItem(KEY) || "null"); return p ? { ...blank(), ...p, plate: { ...blank().plate, ...(p.plate || {}) } } : null; } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(plan)); } catch (e) { msg("This browser couldn't save the plan (a photo may be too big)."); } }
@@ -56,6 +56,8 @@
     }
     return out.filter(Boolean).slice(0, 12);
   }
+  const BORDER = 0.3;   // inches of border and gap around each piece
+  const borderColor = () => { const b = plan.border && OPT.borders.find(x => x.name === plan.border); return b ? b.color : ""; };
   function items() {
     const list = plan.picks.filter(p => +p.w > 0 && +p.h > 0).map(p => ({
       key: "p" + p.id, cat: p.cat, shape: p.shape, w: Math.min(72, +p.w), h: Math.min(72, +p.h), color: p.color, words: p.words,
@@ -65,6 +67,8 @@
       const show = lines.length ? lines : ["Your wording here"];
       list.push({ key: "plate", cat: "plate", shape: "plate", w: +plan.plate.width, h: 0.5 + 0.36 * Math.max(2, show.length), color: pc.color, lines: show, name: `${plan.plate.width}" ${pc.name.toLowerCase()} plate` });
     }
+    // a bordered window around each piece takes up a little room of its own
+    if (borderColor()) for (const it of list) { it.real = { w: it.w, h: it.h }; it.w += 2 * BORDER; it.h += 2 * BORDER; }
     return list;
   }
 
@@ -95,6 +99,13 @@
       return out.map(r => ({ type: "row", items: r, h: Math.max(...r.map(i => i.h)) }));
     };
     rows.push(...flow(top), ...flow(medals));
+    // The shop's classic look: with no photos and just a few small pieces, they sit on each side of the plate
+    let plateRow = null;
+    const few = [...left, ...right, ...small];
+    if (!mid.length && plate.length && few.length && few.length <= 4) {
+      const half = Math.ceil(few.length / 2), row = [...few.slice(0, half), plate[0], ...few.slice(half)];
+      if (row.reduce((n, i) => n + i.w, 0) + (row.length - 1) * gap <= W - 2 * pad) { plateRow = row; left.length = right.length = small.length = 0; }
+    }
     const midW = mid.reduce((n, i) => n + i.w, 0) + Math.max(0, mid.length - 1) * gap;
     const colW = Math.max(2, (W - midW) / 2 - pad - gap);
     const pack = arr => { const out = []; let row = [], w = 0;
@@ -105,7 +116,7 @@
     if (mid.length > 2 && !left.length && !right.length) rows.push(...flow(mid));
     else if (left.length || mid.length || right.length)
       rows.push({ type: "cols", left: pack(left), right: pack(right), mid, midW, h: Math.max(pack(left).h, pack(right).h, mid.length ? Math.max(...mid.map(i => i.h)) : 0) });
-    rows.push(...flow(extra), ...flow(plate));
+    rows.push(...flow(extra), ...(plateRow ? [{ type: "row", items: plateRow, h: Math.max(...plateRow.map(i => i.h)) }] : flow(plate)));
     const used = rows.reduce((n, r) => n + r.h, 0), room = H - 2 * pad;
     const space = Math.max(0.3, (room - used) / Math.max(1, rows.length - 1 + 0.6));
     let y = pad + Math.max(0, (room - used - space * (rows.length - 1)) / 2);
@@ -161,7 +172,7 @@
   // The smallest size on the shop's list where everything fits (a mat makes the opening smaller)
   let bestMemo = {};
   function bestSize(list) {
-    const sig = JSON.stringify([list.map(i => [i.cat, i.w, i.h]), OPT.sizes, plan.wide, plan.kind, plan.mat, plan.matW, OPT.edge]);
+    const sig = JSON.stringify([list.map(i => [i.cat, i.w, i.h]), OPT.sizes, plan.wide, plan.kind, plan.mat, plan.matW, plan.border, OPT.edge]);
     if (!(sig in bestMemo)) bestMemo = { [sig]: findSize(list) };
     return bestMemo[sig];
   }
@@ -231,6 +242,16 @@
     jacket: (w, h, c, g) => `<path d="M${-w * 0.14},${-h / 2} L${-w * 0.32},${-h * 0.44} L${-w / 2},${h * 0.1} L${-w * 0.4},${h * 0.14} L${-w * 0.3},${-h * 0.12} L${-w * 0.3},${h / 2} H${w * 0.3} L${w * 0.3},${-h * 0.12} L${w * 0.4},${h * 0.14} L${w / 2},${h * 0.1} L${w * 0.32},${-h * 0.44} L${w * 0.14},${-h / 2} L0,${-h * 0.3}Z" fill="${g}" stroke="${shade(c, -0.4)}" stroke-width="${w * 0.008}"/>` +
       `<path d="M0,${-h * 0.3} V${h / 2}" stroke="${shade(c, -0.4)}" stroke-width="${w * 0.006}"/>` + [0.05, 0.2, 0.35].map(f => `<circle cx="${w * 0.03}" cy="${h * f - h * 0.05}" r="${w * 0.01}" fill="${shade(c, -0.5)}"/>`).join(""),
     tags: (w, h, c, g) => [[-0.18, -0.12, -8], [0.12, 0.1, 6]].map(([dx, dy, r]) => `<g transform="translate(${w * dx} ${h * dy}) rotate(${r})"><rect x="${-w * 0.28}" y="${-h * 0.36}" width="${w * 0.56}" height="${h * 0.72}" rx="${w * 0.12}" fill="${g}" stroke="${shade(c, -0.4)}" stroke-width="${w * 0.02}"/><circle cy="${-h * 0.27}" r="${w * 0.04}" fill="#555"/></g>`).join(""),
+    snowshoe: (w, h, c, g) => { const lace = shade(c, 0.55), id = "ss" + it_k();
+      return `<path d="M0,${-h / 2} C${w * 0.62},${-h / 2} ${w * 0.55},${h * 0.05} ${w * 0.2},${h * 0.3} L0,${h / 2} L${-w * 0.2},${h * 0.3} C${-w * 0.55},${h * 0.05} ${-w * 0.62},${-h / 2} 0,${-h / 2}Z" fill="none" stroke="${g}" stroke-width="${w * 0.07}"/>` +
+        `<clipPath id="${id}"><path d="M0,${-h / 2} C${w * 0.62},${-h / 2} ${w * 0.55},${h * 0.05} ${w * 0.2},${h * 0.3} L0,${h / 2} L${-w * 0.2},${h * 0.3} C${-w * 0.55},${h * 0.05} ${-w * 0.62},${-h / 2} 0,${-h / 2}Z"/></clipPath>` +
+        `<g clip-path="url(#${id})" stroke="${lace}" stroke-width="${w * 0.012}" opacity=".85">${[...Array(14)].map((_, i) => `<line x1="${-w}" y1="${-h / 2 + i * h * 0.06}" x2="${w}" y2="${-h / 2 + i * h * 0.06 + w}"/><line x1="${w}" y1="${-h / 2 + i * h * 0.06}" x2="${-w}" y2="${-h / 2 + i * h * 0.06 + w}"/>`).join("")}</g>` +
+        `<line x1="${-w * 0.38}" y1="${-h * 0.18}" x2="${w * 0.38}" y2="${-h * 0.18}" stroke="${g}" stroke-width="${w * 0.05}"/><line x1="${-w * 0.33}" y1="${h * 0.02}" x2="${w * 0.33}" y2="${h * 0.02}" stroke="${g}" stroke-width="${w * 0.05}"/>`; },
+    colors: (w, h, c, g) => { const f = Math.min(w, h) * 0.07;
+      return `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" fill="#e7c25a"/>` + [...Array(Math.round(w / 2.5))].map((_, i) => `<line x1="${-w / 2 + i * 2.5}" y1="${h / 2 - f}" x2="${-w / 2 + i * 2.5}" y2="${h / 2}" stroke="#b8902e" stroke-width="0.8"/>`).join("") +
+        `<rect x="${-w / 2 + f}" y="${-h / 2 + f}" width="${w - 2 * f}" height="${h - 2 * f}" fill="${g}"/>` +
+        `<path d="M0,${-h * 0.18} C${w * 0.22},${-h * 0.25} ${w * 0.25},${h * 0.08} 0,${h * 0.2} C${-w * 0.25},${h * 0.08} ${-w * 0.22},${-h * 0.25} 0,${-h * 0.18}Z" fill="${shade(c, -0.45)}" opacity=".85"/>` +
+        `<path d="M${-w * 0.3},${h * 0.3} Q0,${h * 0.36} ${w * 0.3},${h * 0.3}" fill="none" stroke="${shade(c, -0.5)}" stroke-width="${h * 0.04}"/>`; },
     star: (w, h, c, g) => `<polygon points="${starPts(0, 0, Math.min(w, h) / 2)}" fill="${g}" stroke="${shade(c, -0.4)}" stroke-width="${w * 0.02}"/>`,
     photo: (w, h) => `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" fill="#9aa3ad"/><path d="M${-w * 0.35},${h * 0.3} L${-w * 0.1},${-h * 0.05} L${w * 0.08},${h * 0.15} L${w * 0.22},0 L${w * 0.38},${h * 0.3}Z" fill="#6b7682"/>`,
     plate: (w, h, c, g, key, it) => { const lh = 0.36 * IN, gold = /gold/i.test(it.name) && !light(c);
@@ -239,9 +260,38 @@
         `<rect x="${-w / 2 + 1.2}" y="${-h / 2 + 1.2}" width="${w - 2.4}" height="${h - 2.4}" rx="0.8" fill="none" stroke="${letters}" stroke-opacity=".35" stroke-width="0.2"/>` +
         it.lines.map((l, i) => label(l, 0, y0 + (i + 0.5) * lh, w * 0.9, lh * 0.62, letters, i === 0)).join(""); },
   };
+  let ssN = 0; const it_k = () => ssN++;
+  // The outline of an item, for the bordered window it sits in
+  function silhouette(shape, w, h, fill) {
+    if (shape === "circle" || shape === "oval" || shape === "snowshoe") return `<ellipse rx="${w / 2}" ry="${h / 2}" fill="${fill}"/>`;
+    if (shape === "triangle") return `<polygon points="${-w / 2},${h / 2} ${w / 2},${h / 2} 0,${-h / 2}" fill="${fill}"/>`;
+    if (shape === "pennant") { const n = w * 0.25; return `<path d="M${-w / 2},${-h / 2} H${w / 2} L${w / 2 - n},0 L${w / 2},${h / 2} H${-w / 2}Z" fill="${fill}"/>`; }
+    if (shape === "shield") return `<path d="M${-w / 2},${-h / 2 + w * 0.15} Q${-w / 2},${-h / 2} ${-w / 2 + w * 0.15},${-h / 2} H${w / 2 - w * 0.15} Q${w / 2},${-h / 2} ${w / 2},${-h / 2 + w * 0.15} V${h * 0.2} Q${w / 2},${h / 2} 0,${h / 2} Q${-w / 2},${h / 2} ${-w / 2},${h * 0.2}Z" fill="${fill}"/>`;
+    return `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" rx="${Math.min(w, h) * 0.06}" fill="${fill}"/>`;
+  }
+  // The bordered window: a colored band, then a thin gap of background, then the piece
+  function mount(it, color, bg) {
+    if (!it.real) return "";
+    const w = it.real.w * IN, h = it.real.h * IN, b = BORDER * IN, tri = it.shape === "triangle" ? 1.9 : 1;
+    return `<g filter="none">${silhouette(it.shape, w + 2 * b * tri, h + 2 * b * tri * (it.shape === "triangle" ? 0.75 : 1), color)}${silhouette(it.shape, w + b * tri, h + b * tri * (it.shape === "triangle" ? 0.75 : 1), bg)}</g>`;
+  }
+  // Thin lines joining the pieces, like the shop does: each piece links to its nearest neighbor (a tree), with square corners
+  function connectors(list, color) {
+    if (list.length < 2) return "";
+    const pts = list.map(i => ({ x: i.p.x * IN, y: i.p.y * IN })), inTree = [0], out = [];
+    const rest = new Set(pts.map((_, i) => i).slice(1));
+    while (rest.size) {
+      let best = null;
+      for (const a of inTree) for (const b of rest) { const d = Math.abs(pts[a].x - pts[b].x) + Math.abs(pts[a].y - pts[b].y); if (!best || d < best[2]) best = [a, b, d]; }
+      inTree.push(best[1]); rest.delete(best[1]);
+      const [a, b] = pts[best[0]].y <= pts[best[1]].y ? [pts[best[0]], pts[best[1]]] : [pts[best[1]], pts[best[0]]];
+      out.push(`M${a.x},${a.y} V${b.y} H${b.x}`);
+    }
+    return `<path d="${out.join(" ")}" fill="none" stroke="${color}" stroke-width="1.1" stroke-linejoin="miter" opacity=".9"/>`;
+  }
   const WORDS_ON = { rect: 1, rounded: 1, circle: 1, oval: 1, shield: 1, tab: 1, pennant: 1, star: 1, jacket: 1 };
   function drawItem(it) {
-    const w = it.w * IN, h = it.h * IN, k = it.key.replace(/\W/g, ""), c = it.color || "#888888";
+    const w = (it.real || it).w * IN, h = (it.real || it).h * IN, k = it.key.replace(/\W/g, ""), c = it.color || "#888888";
     let s = `<linearGradient id="g${k}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${shade(c, 0.3)}"/><stop offset=".55" stop-color="${c}"/><stop offset="1" stop-color="${shade(c, 0.22)}"/></linearGradient>`;
     if (it.pic) {
       if (it.fit === "slice") s += `<rect x="${-w / 2 - 1.5}" y="${-h / 2 - 1.5}" width="${w + 3}" height="${h + 3}" fill="#f4f1ea"/>`;
@@ -302,9 +352,11 @@
       s += `<rect x="${d}" y="${d}" width="${wi - 2 * d}" height="${Math.min(hi / 3, 14)}" fill="url(#dt)"/>`;
     } else s += `<rect width="${wi}" height="${hi}" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="0.8"/>`;
     const { list, fits } = placed();
+    const bc = borderColor(), bgFill = deep ? shade(bg.color, -0.05) : bg.color;
+    if (plan.lines) s += connectors(list, bc || "#f4f1ea");
     for (const it of list) {
       const w = it.w * IN, h = it.h * IN;
-      s += `<g data-key="${esc(it.key)}" class="pl-item" transform="translate(${it.p.x * IN} ${it.p.y * IN}) rotate(${it.p.r || 0})" filter="url(#sh)">${drawItem(it)}<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" fill="transparent"/></g>`;
+      s += `<g data-key="${esc(it.key)}" class="pl-item" transform="translate(${it.p.x * IN} ${it.p.y * IN}) rotate(${it.p.r || 0})" filter="url(#sh)">${bc ? mount(it, bc, bgFill) : ""}${drawItem(it)}<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" fill="transparent"/></g>`;
       if (!forExport && (selected === it.key || it.tooBig)) s += `<g transform="translate(${it.p.x * IN} ${it.p.y * IN}) rotate(${it.p.r || 0})" pointer-events="none"><rect x="${-w / 2 - 2}" y="${-h / 2 - 2}" width="${w + 4}" height="${h + 4}" fill="none" stroke="${it.tooBig ? "#ff6b6b" : "#e7a3b8"}" stroke-width="${small ? 3 : 1.2}" stroke-dasharray="4 3"/></g>`;
     }
     // glass: a soft reflection across the front
@@ -339,6 +391,8 @@
     if (!OPT.sizes.includes(p.size)) { p.custom = true; [p.cw, p.ch] = st.size.split("x").map(Number); if (p.wide) [p.cw, p.ch] = [p.ch, p.cw]; }
     if (p.kind === "frame" && OPT.mats.length && st.items.length < 3) p.mat = OPT.mats[0].name;
     p.plate.on = st.plate !== false; p.plate.purpose = st.purpose || "";
+    if (st.border !== undefined) p.border = OPT.borders.some(b => b.name === st.border) ? st.border : "";
+    p.lines = !!st.lines;
     for (const u of st.items || []) { const c = OPT.items.find(i => i.id === u.item); if (c) p.picks.push(pickFrom(c, u.size)); }
     withPlan(p, () => { if (!autoArrange(items()).fits) { const tip = bestSize(items()); if (tip) { p.custom = false; p.size = tip.size; p.wide = tip.wide; } } });
     return p;
@@ -372,7 +426,7 @@
       <p class="sub">Start from an idea, or from scratch</p>
       <div class="pl-starters">${starters.map(st => `<button type="button" class="pl-starter${plan.start === st.name ? " on" : ""}" data-starter="${esc(OPT.starters.indexOf(st))}">${thumb(st)}<span>${esc(st.name)}</span></button>`).join("")}
         <button type="button" class="pl-starter blank${plan.start === "" ? " on" : ""}" data-starter="blank"><span class="plus">+</span><span>Start from scratch</span></button></div>
-      <p class="hint">You can change everything after. Picking an idea replaces your current plan (Undo brings it back).</p>`;
+      <p class="hint">These ideas come from pieces we've made. You can change everything after. Picking an idea replaces your current plan (Undo brings it back). <a href="work.html" target="_blank" rel="noopener">See photos of our real work →</a></p>`;
   }
   function stepBox() {
     const frame = plan.kind === "frame";
@@ -384,6 +438,10 @@
       ${frame ? `<div class="pl-row"><label class="grow">Mat<select data-f="mat"><option value="">No mat</option>${OPT.mats.map(m => `<option${m.name === plan.mat ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label>
         ${plan.mat ? `<label class="grow">Mat border<select data-f="matW">${OPT.matWidths.map(w => `<option value="${w}"${w === plan.matW ? " selected" : ""}>${w} in</option>`).join("")}</select></label>` : ""}</div>` : ""}
       <p class="sub">${frame ? "Backing" : "Background"}</p><div class="swatches">${OPT.backgrounds.map(b => `<button type="button" class="swatch${b.name === plan.bg ? " on" : ""}" data-bg="${esc(b.name)}" style="background:radial-gradient(${shade(b.color, 0.15)},${shade(b.color, -0.2)})"><span>${esc(b.name)}</span></button>`).join("")}</div>
+      <p class="sub">Border around each piece</p>
+      <div class="swatches">${[{ name: "", color: "" }, ...OPT.borders].map(b => `<button type="button" class="swatch bd${b.name === plan.border ? " on" : ""}" data-border="${esc(b.name || "none")}"
+        style="background:${b.name ? `radial-gradient(circle at 50% 38%, #1c1614 20%, ${b.color} 22% 34%, #1c1614 36%)` : "#1c1614"}"><span>${esc(b.name || "None")}</span></button>`).join("")}</div>
+      <label class="check"><input type="checkbox" data-f="lines"${plan.lines ? " checked" : ""}> Thin lines joining the pieces</label>
       <p class="sub">Frame</p><div class="swatches">${OPT.frames.map(f => `<button type="button" class="swatch${f.name === plan.frame ? " on" : ""}" data-frame="${esc(f.name)}" style="background:linear-gradient(135deg,${shade(f.color, 0.35)},${shade(f.color, -0.2)},${shade(f.color, 0.35)})"><span>${esc(f.name)}</span></button>`).join("")}</div>`;
   }
   let fresh = null;   // the item just added, to point it out
@@ -511,6 +569,7 @@
       selected = null; go(1); msg(d.starter === "blank" ? "" : `Started from “${OPT.starters[+d.starter].name}”. Change anything you like.`); return;
     }
     if (d.bg) { remember(); plan.bg = d.bg; return update(true); }
+    if (d.border) { remember(); plan.border = d.border === "none" ? "" : d.border; plan.moved = false; plan.pos = {}; return update(true); }
     if (d.frame) { remember(); plan.frame = d.frame; return update(true); }
     if (d.add) { remember(); const c = OPT.items.find(i => i.id === d.add); if (!c) return; const p = pickFrom(c); plan.picks.push(p); fresh = p.id; update(true); fresh = null;
       msg(`Added ${c.name}. Change its size in the list above if you need to.`); const row = panel.querySelector(`[data-pk="${p.id}"]`); if (row && row.getBoundingClientRect().top < 60) row.scrollIntoView({ block: "center" }); return; }
@@ -601,7 +660,8 @@
     const things = Object.entries(counts).map(([n, c]) => c > 1 ? `${c} × ${n}` : n);
     const lines = plateLines(), frame = plan.kind === "frame";
     return `${plan.plate.purpose ? plan.plate.purpose + ". " : ""}${sizeName()}${plan.custom ? " (custom size)" : ""} ${KINDS[plan.kind]}, ${plan.bg.toLowerCase()} ${frame ? "backing" : "background"}, ${plan.frame.toLowerCase()} frame` +
-      (frame ? (plan.mat ? `, ${plan.mat.toLowerCase()} mat (${plan.matW} in)` : ", no mat") : "") + "." +
+      (frame ? (plan.mat ? `, ${plan.mat.toLowerCase()} mat (${plan.matW} in)` : ", no mat") : "") +
+      (plan.border ? `, ${plan.border.toLowerCase()} border around each piece` : "") + (plan.lines ? ", lines joining the pieces" : "") + "." +
       (things.length ? ` Items: ${things.join("; ")}.` : " No items picked yet.") +
       (plan.plate.on ? (lines.length ? ` ${plan.plate.width}" ${plan.plate.color.toLowerCase()} plate: "${lines.join(" / ")}".` : ` ${plan.plate.width}" ${plan.plate.color.toLowerCase()} plate (wording to come).`) : "") +
       (plan.notes.trim() ? ` Notes: ${plan.notes.trim()}` : "");
@@ -638,7 +698,7 @@
         const ticked = [...new Set(plan.picks.map(p => (OPT.categories.find(c => c.id === p.cat) || {}).order || "Other"))];
         const example = plan.kind === "frame" ? "Framed Guidon or Flag" : "Shadow Box";
         localStorage.setItem("whimsicalpig-plan-order", JSON.stringify({ at: Date.now(), text: summary(), items: ticked, example,
-          frame: `${KINDS[plan.kind]}, ${plan.bg} ${plan.kind === "frame" ? "backing" : "background"}, ${plan.frame} frame${plan.kind === "frame" && plan.mat ? `, ${plan.mat} mat` : ""}` }));
+          frame: `${KINDS[plan.kind]}${plan.border ? `, ${plan.border.toLowerCase()} borders` : ""}${plan.lines ? ", connecting lines" : ""}, ${plan.bg} ${plan.kind === "frame" ? "backing" : "background"}, ${plan.frame} frame${plan.kind === "frame" && plan.mat ? `, ${plan.mat} mat` : ""}` }));
         location.href = "order.html?type=military&plan=1";
       } catch (err) { msg("Something went wrong getting your plan ready. Try Download Picture instead, and add it to your order."); b.disabled = false; }
     }
@@ -646,12 +706,13 @@
 
   // The shop's own choices (admin page → Shadow Box Planner); anything not saved there keeps the starting list
   function useOptions(o) {
-    if (o) for (const k of ["sizes", "backgrounds", "frames", "mats", "matWidths", "plateColors", "plateWidths", "purposes", "items", "starters"]) if (Array.isArray(o[k]) && (o[k].length || ["items", "starters", "mats", "purposes"].includes(k))) OPT[k] = o[k];
+    if (o) for (const k of ["sizes", "backgrounds", "frames", "borders", "mats", "matWidths", "plateColors", "plateWidths", "purposes", "items", "starters"]) if (Array.isArray(o[k]) && (o[k].length || ["items", "starters", "mats", "purposes", "borders"].includes(k))) OPT[k] = o[k];
     if (o && typeof o.edge === "number") OPT.edge = o.edge;
     if (!plan.custom && !OPT.sizes.includes(plan.size)) plan.size = OPT.sizes.find(z => z === "16x20") || OPT.sizes[0];
     if (!OPT.backgrounds.some(b => b.name === plan.bg)) plan.bg = OPT.backgrounds[0].name;
     if (!OPT.frames.some(f => f.name === plan.frame)) plan.frame = OPT.frames[0].name;
     if (plan.mat && !OPT.mats.some(m => m.name === plan.mat)) plan.mat = "";
+    if (plan.border && !OPT.borders.some(b => b.name === plan.border)) plan.border = "";
     if (!OPT.matWidths.includes(plan.matW)) plan.matW = OPT.matWidths[0] || "2";
     if (!OPT.plateColors.some(c => c.name === plan.plate.color)) plan.plate.color = OPT.plateColors[0].name;
     if (!OPT.plateWidths.includes(plan.plate.width)) plan.plate.width = OPT.plateWidths[Math.floor(OPT.plateWidths.length / 2)];
