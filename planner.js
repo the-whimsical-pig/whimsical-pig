@@ -23,14 +23,15 @@
   const blank = () => ({ step: 0, kind: "shadowbox", start: "", size: "16x20", wide: false, custom: false, cw: 16, ch: 20,
     bg: OPT.backgrounds[0].name, frame: OPT.frames[0].name, mat: "", matW: OPT.matWidths.includes("2") ? "2" : OPT.matWidths[0], picks: [],
     plate: { on: true, purpose: "", color: OPT.plateColors[0].name, width: OPT.plateWidths.includes("8") ? "8" : OPT.plateWidths[0], rankname: "", position: "", unit: "", from: "", to: "", message: "", quote: "" },
-    border: (OPT.borders[0] || {}).name || "", lines: false, notes: "", pos: {}, moved: false });
+    border: (OPT.borders[0] || {}).name || "", lines: false, layout: "rows", notes: "", pos: {}, moved: false });
   let plan = load() || blank();
   function load() { try { const p = JSON.parse(localStorage.getItem(KEY) || "null"); return p ? { ...blank(), ...p, plate: { ...blank().plate, ...(p.plate || {}) } } : null; } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(plan)); } catch (e) { msg("This browser couldn't save the plan (a photo may be too big)."); } }
   const msg = t => { $("pl-msg").textContent = t; };
   let undo = [];
   function remember() { undo.push(JSON.stringify(plan)); if (undo.length > 60) undo.shift(); $("pl-undo").disabled = false; }
-  const uid = () => Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  let uidN = 0;
+  const uid = () => Date.now() * 1000 + (++uidN % 1000);   // unique even when many are made at once
   // run fn with another plan in place (for the starter pictures)
   function withPlan(p, fn) { const keep = plan; plan = p; try { return fn(); } finally { plan = keep; } }
 
@@ -74,8 +75,15 @@
 
   // ---------- where things go ----------
   const turned = (it, r) => (r % 180 ? [it.h, it.w] : [it.w, it.h]);
+  // Layout styles: neat rows, around the center (a centerpiece with things around it) or a collection grid
+  const LAYOUTS = { rows: "Neat rows", around: "Around the center", grid: "Collection grid" };
   function autoArrange(list, box) {
-    const [W, H] = box || boxIn(), tidy = bandLayout(list, W, H);
+    const [W, H] = box || boxIn();
+    if (plan.layout === "around" || plan.layout === "grid") {
+      const r = (plan.layout === "around" ? aroundLayout : gridLayout)(list, W, H);
+      if (r.fits) return r;
+    }
+    const tidy = bandLayout(list, W, H);
     if (tidy.fits) return tidy;
     const tight = packLayout(list, W, H);   // too full for neat rows: tuck smaller things in beside the big ones
     return tight.fits ? tight : tidy;
@@ -138,6 +146,63 @@
     }
     return { pos, fits: roomy(list, pos, W, H) };
   }
+  // The biggest piece in the middle, everything else down its sides (and across the top if needed), plate below
+  function aroundLayout(list, W, H) {
+    const m = Math.max(edge(), 0.4), gap = 0.5, pos = {};
+    const plate = list.find(i => i.cat === "plate"), rest = list.filter(i => i !== plate);
+    if (!rest.length) return { pos, fits: false };
+    const center = [...rest].sort((a, b) => b.w * b.h - a.w * a.h)[0], others = rest.filter(i => i !== center);
+    const bottom = plate ? plate.h + gap : 0, avail = H - 2 * m - bottom;
+    const sideW = (W - center.w) / 2 - m - gap, L = [], R = [], top = [];
+    let hl = 0, hr = 0;
+    for (const it of others) {
+      const fitL = it.w <= sideW && hl + it.h <= avail, fitR = it.w <= sideW && hr + it.h <= avail;
+      if (fitL && (hl <= hr || !fitR)) { L.push(it); hl += it.h + gap; } else if (fitR) { R.push(it); hr += it.h + gap; } else top.push(it);
+    }
+    let y0 = m, topW = 0;
+    if (top.length) { let x = 0, row = [], rows = []; for (const it of top) { if (row.length && x + it.w > W - 2 * m) { rows.push(row); row = []; x = 0; } row.push(it); x += it.w + gap; } rows.push(row);
+      for (const r of rows) { const rh = Math.max(...r.map(i => i.h)), tw = r.reduce((n, i) => n + i.w, 0) + (r.length - 1) * gap; let x2 = (W - tw) / 2; topW = Math.max(topW, tw);
+        for (const it of r) { pos[it.key] = { x: x2 + it.w / 2, y: y0 + rh / 2, r: 0 }; x2 += it.w + gap; } y0 += rh + gap; } }
+    const yb = H - m - bottom, cy = (y0 + yb) / 2;
+    pos[center.key] = { x: W / 2, y: cy, r: 0 };
+    // the sides can run the full height when the top row stays within the centerpiece's width
+    const c0 = topW <= center.w + 2 * gap ? m : y0;
+    const column = (col, cx) => { const total = col.reduce((n, i) => n + i.h, 0), space = col.length > 1 ? Math.max(gap * 0.6, ((yb - c0) - total) / (col.length + 1)) : 0;
+      let y = col.length > 1 ? c0 + space : cy - (col[0] ? col[0].h / 2 : 0);
+      for (const it of col) { pos[it.key] = { x: cx, y: y + it.h / 2, r: 0 }; y += it.h + space; } };
+    column(L, m + sideW / 2); column(R, W - m - sideW / 2);
+    if (plate) pos[plate.key] = { x: W / 2, y: H - m - plate.h / 2, r: 0 };
+    return { pos, fits: roomy(list, pos, W, H) };
+  }
+  // A collection: big pieces across the top, then everything else in an even grid, plate below
+  function gridLayout(list, W, H) {
+    const m = Math.max(edge(), 0.4), gap = 0.45, pos = {};
+    const plate = list.find(i => i.cat === "plate"), rest = list.filter(i => i !== plate);
+    const bigOnes = rest.filter(i => i.w > Math.max(3.5, (W - 2 * m) * 0.3) || i.h > (H - 2 * m) * 0.3);
+    // like pieces together, tallest first; each row shares its space evenly
+    const small = rest.filter(i => !bigOnes.includes(i)).sort((a, b) => b.h - a.h || b.w - a.w || String(a.name).localeCompare(b.name));
+    const rows = [];
+    for (const it of bigOnes) rows.push([it]);
+    let row = [], used = 0;
+    for (const it of small) {
+      const same = row.length && Math.abs(row[0].h - it.h) < 0.3 && Math.abs(row[0].w - it.w) < 0.3;
+      if (row.length && (!same || used + gap + it.w > W - 2 * m)) { rows.push(row); row = []; used = 0; }
+      used += (row.length ? gap : 0) + it.w; row.push(it);
+    }
+    if (row.length) rows.push(row);
+    const bottom = plate ? plate.h + gap : 0, total = rows.reduce((n, r) => n + Math.max(...r.map(i => i.h)), 0);
+    const vgap = rows.length > 1 ? Math.max(gap, Math.min(gap * 2.5, (H - 2 * m - bottom - total) / (rows.length - 1))) : 0;
+    let y = m + Math.max(0, (H - 2 * m - bottom - total - vgap * (rows.length - 1)) / 2);
+    for (const r of rows) {
+      const rh = Math.max(...r.map(i => i.h)), rw = r.reduce((n, i) => n + i.w, 0);
+      const hgap = r.length > 1 ? Math.min(gap * 3, (W - 2 * m - rw) / (r.length - 1)) : 0, span = rw + hgap * (r.length - 1);
+      let x = (W - span) / 2;
+      for (const it of r) { pos[it.key] = { x: x + it.w / 2, y: y + rh / 2, r: 0 }; x += it.w + hgap; }
+      y += rh + vgap;
+    }
+    if (plate) pos[plate.key] = { x: W / 2, y: H - m - plate.h / 2, r: 0 };
+    return { pos, fits: roomy(list, pos, W, H) };
+  }
   // Fill the box from the top, putting each item in the highest, then leftmost, open spot;
   // biggest things first, the plate last. Then center the whole group in the box.
   function packLayout(list, W, H) {
@@ -172,7 +237,7 @@
   // The smallest size on the shop's list where everything fits (a mat makes the opening smaller)
   let bestMemo = {};
   function bestSize(list) {
-    const sig = JSON.stringify([list.map(i => [i.cat, i.w, i.h]), OPT.sizes, plan.wide, plan.kind, plan.mat, plan.matW, plan.border, OPT.edge]);
+    const sig = JSON.stringify([list.map(i => [i.cat, i.w, i.h]), OPT.sizes, plan.wide, plan.kind, plan.mat, plan.matW, plan.border, plan.layout, OPT.edge]);
     if (!(sig in bestMemo)) bestMemo = { [sig]: findSize(list) };
     return bestMemo[sig];
   }
@@ -252,6 +317,12 @@
         `<rect x="${-w / 2 + f}" y="${-h / 2 + f}" width="${w - 2 * f}" height="${h - 2 * f}" fill="${g}"/>` +
         `<path d="M0,${-h * 0.18} C${w * 0.22},${-h * 0.25} ${w * 0.25},${h * 0.08} 0,${h * 0.2} C${-w * 0.25},${h * 0.08} ${-w * 0.22},${-h * 0.25} 0,${-h * 0.18}Z" fill="${shade(c, -0.45)}" opacity=".85"/>` +
         `<path d="M${-w * 0.3},${h * 0.3} Q0,${h * 0.36} ${w * 0.3},${h * 0.3}" fill="none" stroke="${shade(c, -0.5)}" stroke-width="${h * 0.04}"/>`; },
+    crest: (w, h, c, g) => `<path d="M${-w / 2},${-h / 2} H${w / 2} V${h * 0.05} Q${w / 2},${h * 0.32} 0,${h * 0.42} Q${-w / 2},${h * 0.32} ${-w / 2},${h * 0.05}Z" fill="${g}" stroke="${shade(c, -0.45)}" stroke-width="${w * 0.04}"/>` +
+      `<path d="M${-w * 0.3},${-h * 0.36} H${w * 0.3} V${h * 0.02} Q${w * 0.3},${h * 0.2} 0,${h * 0.27} Q${-w * 0.3},${h * 0.2} ${-w * 0.3},${h * 0.02}Z" fill="#8a1f24" opacity=".85"/>` +
+      `<path d="M${-w * 0.5},${h * 0.36} Q0,${h * 0.56} ${w * 0.5},${h * 0.36} L${w * 0.45},${h * 0.5} Q0,${h * 0.66} ${-w * 0.45},${h * 0.5}Z" fill="${g}" stroke="${shade(c, -0.45)}" stroke-width="${w * 0.025}"/>`,
+    diamond: (w, h, c, g) => `<polygon points="0,${-h / 2} ${w / 2},0 0,${h / 2} ${-w / 2},0" fill="${g}" stroke="${shade(c, -0.4)}" stroke-width="${w * 0.03}"/>` +
+      `<polygon points="0,${-h * 0.36} ${w * 0.36},0 0,${h * 0.36} ${-w * 0.36},0" fill="#1f3a93"/><polygon points="0,${-h * 0.3} ${w * 0.3},0 0,${h * 0.3} ${-w * 0.3},0" fill="none" stroke="${shade(c, 0.3)}" stroke-width="${w * 0.015}"/>`,
+    banner: (w, h, c, g) => `<path d="M${-w / 2},${-h / 2} H${w / 2} V${h / 2} L0,${h / 2 - w * 0.4} L${-w / 2},${h / 2}Z" fill="${g}" stroke="${shade(c, 0.45)}" stroke-width="${w * 0.05}"/>`,
     star: (w, h, c, g) => `<polygon points="${starPts(0, 0, Math.min(w, h) / 2)}" fill="${g}" stroke="${shade(c, -0.4)}" stroke-width="${w * 0.02}"/>`,
     photo: (w, h) => `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" fill="#9aa3ad"/><path d="M${-w * 0.35},${h * 0.3} L${-w * 0.1},${-h * 0.05} L${w * 0.08},${h * 0.15} L${w * 0.22},0 L${w * 0.38},${h * 0.3}Z" fill="#6b7682"/>`,
     plate: (w, h, c, g, key, it) => { const lh = 0.36 * IN, gold = /gold/i.test(it.name) && !light(c);
@@ -264,6 +335,7 @@
   // The outline of an item, for the bordered window it sits in
   function silhouette(shape, w, h, fill) {
     if (shape === "circle" || shape === "oval" || shape === "snowshoe") return `<ellipse rx="${w / 2}" ry="${h / 2}" fill="${fill}"/>`;
+    if (shape === "diamond") return `<polygon points="0,${-h / 2} ${w / 2},0 0,${h / 2} ${-w / 2},0" fill="${fill}"/>`;
     if (shape === "triangle") return `<polygon points="${-w / 2},${h / 2} ${w / 2},${h / 2} 0,${-h / 2}" fill="${fill}"/>`;
     if (shape === "pennant") { const n = w * 0.25; return `<path d="M${-w / 2},${-h / 2} H${w / 2} L${w / 2 - n},0 L${w / 2},${h / 2} H${-w / 2}Z" fill="${fill}"/>`; }
     if (shape === "shield") return `<path d="M${-w / 2},${-h / 2 + w * 0.15} Q${-w / 2},${-h / 2} ${-w / 2 + w * 0.15},${-h / 2} H${w / 2 - w * 0.15} Q${w / 2},${-h / 2} ${w / 2},${-h / 2 + w * 0.15} V${h * 0.2} Q${w / 2},${h / 2} 0,${h / 2} Q${-w / 2},${h / 2} ${-w / 2},${h * 0.2}Z" fill="${fill}"/>`;
@@ -289,7 +361,7 @@
     }
     return `<path d="${out.join(" ")}" fill="none" stroke="${color}" stroke-width="1.1" stroke-linejoin="miter" opacity=".9"/>`;
   }
-  const WORDS_ON = { rect: 1, rounded: 1, circle: 1, oval: 1, shield: 1, tab: 1, pennant: 1, star: 1, jacket: 1 };
+  const WORDS_ON = { banner: 1, rect: 1, rounded: 1, circle: 1, oval: 1, shield: 1, tab: 1, pennant: 1, star: 1, jacket: 1 };
   function drawItem(it) {
     const w = (it.real || it).w * IN, h = (it.real || it).h * IN, k = it.key.replace(/\W/g, ""), c = it.color || "#888888";
     let s = `<linearGradient id="g${k}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${shade(c, 0.3)}"/><stop offset=".55" stop-color="${c}"/><stop offset="1" stop-color="${shade(c, 0.22)}"/></linearGradient>`;
@@ -300,7 +372,8 @@
       if (it.shape === "photo") s += `<rect x="${-w / 2 - 1.5}" y="${-h / 2 - 1.5}" width="${w + 3}" height="${h + 3}" fill="#f4f1ea"/>`;
       s += (SHAPES[it.shape] || SHAPES.rect)(w, h, c, `url(#g${k})`, k, it);
     }
-    if (it.words && WORDS_ON[it.shape] && !it.pic) {
+    if (it.words && it.shape === "banner" && !it.pic) s += `<g transform="rotate(90)">${label(it.words.toUpperCase(), -w * 0.1, 0, h * 0.8, w * 0.55, ink(c), true)}</g>`;
+    else if (it.words && WORDS_ON[it.shape] && !it.pic) {
       const pen = it.shape === "pennant";
       s += label(it.words, pen ? -w * 0.08 : 0, pen ? -h * 0.25 : it.shape === "tab" ? h * 0.12 : it.shape === "jacket" ? -h * 0.1 : 0,
         w * (it.shape === "jacket" ? 0.5 : pen ? 0.55 : 0.78), Math.min(h * (pen ? 0.16 : 0.3), 9), ink(c), true);
@@ -359,6 +432,8 @@
       s += `<g data-key="${esc(it.key)}" class="pl-item" transform="translate(${it.p.x * IN} ${it.p.y * IN}) rotate(${it.p.r || 0})" filter="url(#sh)">${bc ? mount(it, bc, bgFill) : ""}${drawItem(it)}<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" fill="transparent"/></g>`;
       if (!forExport && (selected === it.key || it.tooBig)) s += `<g transform="translate(${it.p.x * IN} ${it.p.y * IN}) rotate(${it.p.r || 0})" pointer-events="none"><rect x="${-w / 2 - 2}" y="${-h / 2 - 2}" width="${w + 4}" height="${h + 4}" fill="none" stroke="${it.tooBig ? "#ff6b6b" : "#e7a3b8"}" stroke-width="${small ? 3 : 1.2}" stroke-dasharray="4 3"/></g>`;
     }
+    if (!forExport) for (const g of guides) s += g.x !== undefined ? `<line x1="${g.x * IN}" y1="0" x2="${g.x * IN}" y2="${hi}" stroke="#ff8fb1" stroke-width="0.9" stroke-dasharray="3 2" pointer-events="none"/>`
+      : `<line x1="0" y1="${g.y * IN}" x2="${wi}" y2="${g.y * IN}" stroke="#ff8fb1" stroke-width="0.9" stroke-dasharray="3 2" pointer-events="none"/>`;
     // glass: a soft reflection across the front
     s += `<polygon points="0,0 ${wi * 0.55},0 ${wi * 0.2},${hi} 0,${hi}" fill="url(#glass)" pointer-events="none"/>`;
     s += "</g>";
@@ -373,7 +448,7 @@
     const { list, fits } = pic;
     if (big) { const it = list.find(i => i.key === selected);
       $("pl-bigsel").textContent = it ? it.name : "Drag things to move them. Tap one to turn it or take it out.";
-      document.querySelectorAll("[data-big=turn], [data-big=remove]").forEach(b => { b.disabled = !it; }); }
+      document.querySelectorAll("[data-big=turn], [data-big=remove], [data-big=center]").forEach(b => { b.disabled = !it; }); }
     const over = list.filter(i => i.tooBig).map(i => i.name), tip = !fits && list.length ? bestSize(list) : null;
     const same = tip && !plan.custom && tip.size === plan.size && tip.wide === plan.wide;
     const offer = !tip ? "" : `<button type="button" class="link-btn" data-size="${tip.size}" data-wide="${tip.wide ? 1 : ""}">${same ? "Arrange for me again"
@@ -392,7 +467,7 @@
     if (p.kind === "frame" && OPT.mats.length && st.items.length < 3) p.mat = OPT.mats[0].name;
     p.plate.on = st.plate !== false; p.plate.purpose = st.purpose || "";
     if (st.border !== undefined) p.border = OPT.borders.some(b => b.name === st.border) ? st.border : "";
-    p.lines = !!st.lines;
+    p.lines = !!st.lines; p.layout = LAYOUTS[st.layout] ? st.layout : "rows";
     for (const u of st.items || []) { const c = OPT.items.find(i => i.id === u.item); if (c) p.picks.push(pickFrom(c, u.size)); }
     withPlan(p, () => { if (!autoArrange(items()).fits) { const tip = bestSize(items()); if (tip) { p.custom = false; p.size = tip.size; p.wide = tip.wide; } } });
     return p;
@@ -490,16 +565,26 @@
         <label class="wide">Quote (optional)<input data-pl="quote" value="${esc(p.quote)}" maxlength="120" placeholder="A motto or a phrase they always said"></label></div>
         <p class="hint">Leave any line blank, or skip ahead and tell us later. We'll send you a proof of the wording before we engrave.</p>` : ""}`;
   }
+  const LAYOUT_ART = {
+    rows: `<svg viewBox="0 0 40 30" aria-hidden="true"><rect x="12" y="3" width="16" height="7" rx="1"/><rect x="6" y="13" width="6" height="6" rx="1"/><rect x="17" y="13" width="6" height="6" rx="1"/><rect x="28" y="13" width="6" height="6" rx="1"/><rect x="13" y="23" width="14" height="4" rx="1"/></svg>`,
+    around: `<svg viewBox="0 0 40 30" aria-hidden="true"><rect x="13" y="4" width="14" height="16" rx="1"/><circle cx="7" cy="7" r="2.5"/><circle cx="7" cy="14" r="2.5"/><circle cx="33" cy="7" r="2.5"/><circle cx="33" cy="14" r="2.5"/><rect x="13" y="23" width="14" height="4" rx="1"/></svg>`,
+    grid: `<svg viewBox="0 0 40 30" aria-hidden="true">${[0, 1, 2].map(r => [0, 1, 2, 3].map(c => `<circle cx="${8 + c * 8}" cy="${6 + r * 6.5}" r="2.6"/>`).join("")).join("")}<rect x="13" y="23" width="14" height="4" rx="1"/></svg>`,
+  };
   function stepArrange() {
     return `<p class="hint">We've laid it out for you. Drag anything to move it; it stays inside, clear of the edge. Tap an item to turn it or take it out. On a phone, <b>Bigger View</b> makes this much easier.</p>
+      <p class="sub">Layout</p>
+      <div class="pl-layouts">${Object.entries(LAYOUTS).map(([k, t]) => `<button type="button" class="pl-layout${plan.layout === k ? " on" : ""}" data-layout="${k}">${LAYOUT_ART[k]}<span>${t}</span></button>`).join("")}</div>
       <div class="pl-acts"><button type="button" class="btn sm" data-openbig>Bigger View</button><button type="button" class="btn ghost sm" data-auto>Arrange for Me Again</button></div>
-      <div id="pl-sel"></div>`;
+      <div id="pl-sel"></div>
+      <p class="hint">Things snap into line with each other and the middle of the box as you drag. On a computer, the arrow keys nudge the piece you picked.</p>`;
   }
   function stepSend() {
     return `<p id="pl-summary" class="summary">${esc(summary())}</p>
       <label class="wide">Anything else we should know? (optional)<textarea data-f="notes" rows="4" maxlength="1000" placeholder="e.g. I also have his beret and two more coins. Not sure about the size, open to ideas.">${esc(plan.notes)}</textarea></label>
       <button class="btn" id="pl-order" type="button">Use This Plan in My Order</button>
       <button class="btn ghost" id="pl-download" type="button">Download Picture</button>
+      <button class="btn ghost" id="pl-share" type="button">Share This Plan</button>
+      <p class="hint">Sharing gives you a link that opens this plan on any phone or computer, handy for planning a gift together. Your own photos aren't included in the link.</p>
       <p class="hint">It doesn't have to be finished. We'll work out the details and the final layout with you before we build. Your plan stays in this browser, so you can come back to it.</p>`;
   }
   function drawStep() {
@@ -516,7 +601,7 @@
   function drawSel() {
     const box = $("pl-sel"); if (!box) return;
     const it = render().find(i => i.key === selected);
-    box.innerHTML = it ? `<div class="pl-pick"><div class="pl-pick-top"><span class="pl-pick-name">${esc(it.name)}</span><button type="button" class="btn ghost sm" data-turn>Turn</button><button type="button" class="btn ghost sm del" data-remove>Take Out</button></div></div>` : "";
+    box.innerHTML = it ? `<div class="pl-pick"><div class="pl-pick-top"><span class="pl-pick-name">${esc(it.name)}</span><button type="button" class="btn ghost sm" data-center>Center It</button><button type="button" class="btn ghost sm" data-turn>Turn</button><button type="button" class="btn ghost sm del" data-remove>Take Out</button></div></div>` : "";
   }
   function update(step) { save(); render(); if (step) drawStep(); }
   // Show the new step just below whatever stays stuck at the top (header, banners, and on phones the picture)
@@ -534,6 +619,16 @@
     if (!plan.moved) { for (const i of render()) plan.pos[i.key] = { ...i.p }; plan.moved = true; }
     const cur = plan.pos[selected] || {}; plan.pos[selected] = { ...cur, r: ((cur.r || 0) + 90) % 360 }; save(); render(); drawSel();
   }
+  // keep everything where it is, then change one piece
+  function hold() { if (!plan.moved) { for (const i of render()) plan.pos[i.key] = { ...i.p }; plan.moved = true; } }
+  function centerIt() { remember(); hold(); const it = items().find(i => i.key === selected); plan.pos[selected] = clamp(it, { ...plan.pos[selected], x: boxIn()[0] / 2 }); save(); render(); drawSel(); }
+  addEventListener("keydown", e => {
+    if (!selected || !/^Arrow/.test(e.key) || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || (plan.step !== ARRANGE && !big)) return;
+    e.preventDefault(); if (!e.repeat) remember(); hold();
+    const step = e.shiftKey ? 1 : 0.125, it = items().find(i => i.key === selected), p = { ...plan.pos[selected] };
+    if (e.key === "ArrowLeft") p.x -= step; if (e.key === "ArrowRight") p.x += step; if (e.key === "ArrowUp") p.y -= step; if (e.key === "ArrowDown") p.y += step;
+    plan.pos[selected] = clamp(it, p); save(); render();
+  });
   function takeOut() {
     remember(); if (selected === "plate") plan.plate.on = false; else plan.picks = plan.picks.filter(p => "p" + p.id !== selected);
     delete plan.pos[selected]; selected = null; update(true);
@@ -546,7 +641,7 @@
   }
   $("pl-big").onclick = () => bigView(true);
   $("pl-bigbar").onclick = e => { const a = e.target.dataset.big; if (!a) return;
-    if (a === "done") bigView(false); if (a === "auto") rearrange(); if (a === "turn" && selected) turn(); if (a === "remove" && selected) takeOut(); };
+    if (a === "done") bigView(false); if (a === "auto") rearrange(); if (a === "turn" && selected) turn(); if (a === "center" && selected) centerIt(); if (a === "remove" && selected) takeOut(); };
   addEventListener("keydown", e => { if (e.key === "Escape" && big) bigView(false); });
 
   // ---------- adding and changing items ----------
@@ -585,6 +680,8 @@
     if ("auto" in d) return rearrange();
     if ("openbig" in d) return bigView(true);
     if ("turn" in d && selected) return turn();
+    if ("center" in d && selected) return centerIt();
+    if (d.layout) { remember(); plan.layout = d.layout; plan.moved = false; plan.pos = {}; selected = null; return update(true); }
     if ("remove" in d && selected) return takeOut();
   });
   panel.addEventListener("input", e => {
@@ -628,7 +725,7 @@
   }
 
   // ---------- dragging (mouse and touch), only on the Arrange step so phones can still scroll ----------
-  let drag = null;
+  let drag = null, guides = [];
   const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return { x: q.x / IN - matOff(), y: q.y / IN - matOff() }; };
   svg.addEventListener("pointerdown", e => {
     const g = e.target.closest(".pl-item");
@@ -646,11 +743,21 @@
       // from now on, keep everything where it is (and this item where it's dragged)
       if (!plan.moved) { for (const i of render()) plan.pos[i.key] = { ...i.p }; plan.moved = true; }
     }
-    const p = pt(e);
-    plan.pos[drag.it.key] = clamp(drag.it, { ...(plan.pos[drag.it.key] || drag.it.p), x: p.x - drag.dx, y: p.y - drag.dy });
+    const p = pt(e), it = drag.it, q = clamp(it, { ...(plan.pos[it.key] || it.p), x: p.x - drag.dx, y: p.y - drag.dy });
+    // snap into line with the middle of the box and with other pieces (centers and edges)
+    const [W] = boxIn(), snap = 0.22, [w, h] = turned(it, q.r || 0);
+    guides = [];
+    const xs = [[W / 2, 0]], ys = [];
+    for (const o of items()) { if (o.key === it.key) continue; const op = plan.pos[o.key]; if (!op) continue; const [ow, oh] = turned(o, op.r || 0);
+      xs.push([op.x, 0], [op.x - ow / 2, -w / 2], [op.x + ow / 2, w / 2]); ys.push([op.y, 0], [op.y - oh / 2, -h / 2], [op.y + oh / 2, h / 2]); }
+    const best = (list, v) => { let b = null; for (const [line, off] of list) { const d = Math.abs(v + off - line); if (d < snap && (!b || d < b[0])) b = [d, line, off]; } return b; };
+    const bx = best(xs, q.x), by = best(ys, q.y);
+    if (bx) { q.x = bx[1] - bx[2]; guides.push({ x: bx[1] }); }
+    if (by) { q.y = by[1] - by[2]; guides.push({ y: by[1] }); }
+    plan.pos[it.key] = clamp(it, q);
     render();
   });
-  const endDrag = () => { if (drag) { drag = null; save(); drawSel(); } };
+  const endDrag = () => { if (drag) { drag = null; guides = []; save(); render(); drawSel(); } };
   svg.addEventListener("pointerup", endDrag); svg.addEventListener("pointercancel", endDrag);
 
   // ---------- what's in it, in words ----------
@@ -718,6 +825,40 @@
     if (!OPT.plateWidths.includes(plan.plate.width)) plan.plate.width = OPT.plateWidths[Math.floor(OPT.plateWidths.length / 2)];
     update(true);
   }
+  // ---------- sharing: the whole plan (minus customer photos) packed into the link ----------
+  const b64 = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64 = t => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+  async function pack(obj) {
+    const raw = new TextEncoder().encode(JSON.stringify(obj));
+    if (!window.CompressionStream) return "j" + b64(raw);
+    return "z" + b64(new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer()));
+  }
+  async function unpack(t) {
+    const bytes = unb64(t.slice(1));
+    const raw = t[0] === "z" ? new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer()) : bytes;
+    return JSON.parse(new TextDecoder().decode(raw));
+  }
+  panel.addEventListener("click", async e => {
+    if (e.target.id !== "pl-share") return;
+    const copy = { ...plan, step: 0, picks: plan.picks.map(p => ({ ...p, src: "" })) };
+    const url = location.origin + location.pathname + "#plan=" + await pack(copy);
+    try {
+      if (navigator.share && matchMedia("(pointer: coarse)").matches) { await navigator.share({ title: "My shadow box plan", text: "Here's the shadow box I'm planning with The Whimsical Pig:", url }); return; }
+      await navigator.clipboard.writeText(url); msg("Link copied. Paste it in a text or email to share this plan.");
+    } catch (err) { if (err && err.name === "AbortError") return; prompt("Copy this link to share your plan:", url); }
+  });
+  async function openShared() {
+    const m = location.hash.match(/^#plan=([jz][\w-]+)$/); if (!m) return;
+    history.replaceState(null, "", location.pathname + location.search);
+    try {
+      const got = await unpack(m[1]);
+      if (plan.picks.length && !confirm("Open the plan someone shared with you? It replaces the plan in this browser (Undo brings yours back).")) return;
+      remember(); plan = { ...blank(), ...got, plate: { ...blank().plate, ...(got.plate || {}) }, step: 1 };
+      update(true); msg("Here's the shared plan. Change anything you like.");
+    } catch (err) { msg("That plan link didn't open. It may have been cut off when it was copied."); }
+  }
+
   document.addEventListener("site-changes", e => useOptions(e.detail && e.detail.planner));
   useOptions(typeof SITE_CHANGES !== "undefined" && SITE_CHANGES ? SITE_CHANGES.planner : null);
+  openShared();
 })();

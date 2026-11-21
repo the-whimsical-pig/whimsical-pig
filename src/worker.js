@@ -1466,7 +1466,7 @@ async function saveSite(request, env) {
 
 // Shadow Box Planner choices (Admin → Shadow Box Planner). Anything left out keeps the planner's starting list.
 const PLANNER_CATS = ["flag", "medal", "rank", "badge", "patch", "photo", "coin", "other"];
-const PLANNER_SHAPES = ["rect", "rounded", "circle", "oval", "triangle", "shield", "medal", "ribbon", "chevron", "tab", "pennant", "jacket", "tags", "star", "openflag", "colors", "snowshoe", "photo"];
+const PLANNER_SHAPES = ["rect", "rounded", "circle", "oval", "triangle", "shield", "medal", "ribbon", "chevron", "tab", "pennant", "jacket", "tags", "star", "openflag", "colors", "snowshoe", "crest", "diamond", "banner", "photo"];
 function cleanPlanner(p) {
   if (p === null) return { planner: null };
   if (!p || typeof p !== "object") return { error: "Couldn't read the planner choices." };
@@ -1507,7 +1507,7 @@ function cleanPlanner(p) {
     if (starters) out.starters = starters.map(st => st && typeof st === "object" && ({
       name: cleanText(st.name, 40), kind: st.kind === "frame" ? "frame" : "shadowbox",
       size: /^\d{1,2}(\.\d{1,2})?x\d{1,2}(\.\d{1,2})?$/.test(String(st.size || "")) ? String(st.size) : "16x20", wide: !!st.wide,
-      purpose: cleanText(st.purpose, 30), plate: st.plate !== false, border: cleanText(st.border, 30), lines: !!st.lines,
+      purpose: cleanText(st.purpose, 30), plate: st.plate !== false, border: cleanText(st.border, 30), lines: !!st.lines, layout: ["rows", "around", "grid"].includes(st.layout) ? st.layout : "rows",
       items: (Array.isArray(st.items) ? st.items : []).slice(0, 40).filter(u => u && /^[\w-]{1,24}$/.test(u.item || "")).map(u => ({ item: u.item, size: Math.min(11, Math.max(0, parseInt(u.size, 10) || 0)) })),
     })).filter(st => st && st.name);
     return { planner: out };

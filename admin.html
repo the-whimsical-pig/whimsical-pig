@@ -197,7 +197,7 @@
   .pl-it-acts { display: flex; flex-wrap: wrap; gap: 18px; }
   .pl-st { display: grid; gap: 12px; padding: 16px; margin-bottom: 10px; }
   .pl-st .pl-it-row { grid-template-columns: 2fr 1.2fr 1.2fr auto; align-items: end; }
-  .pl-st .pl-it-row:nth-child(2) { grid-template-columns: auto 1fr auto 1.4fr; }
+  .pl-st .pl-it-row:nth-child(2) { grid-template-columns: auto 1fr auto 1fr 1.3fr; }
   .pl-st-items { display: grid; gap: 6px; }
   .pl-st-item { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; align-items: center; }
   .pl-st-item select { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; }
@@ -1809,6 +1809,7 @@
           <label class="tick"><input type="checkbox" data-sk="plate"${st.plate !== false ? " checked" : ""}> Engraved plate</label>
           <label>Borders<select data-sk="border"><option value="">None</option>${plOpts.borders.map(b => `<option${b.name === st.border ? " selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label>
           <label class="tick"><input type="checkbox" data-sk="lines"${st.lines ? " checked" : ""}> Lines joining pieces</label>
+          <label>Layout<select data-sk="layout">${[["rows", "Neat rows"], ["around", "Around the center"], ["grid", "Collection grid"]].map(([v, t]) => `<option value="${v}"${(st.layout || "rows") === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>
           <label>Plate wording for<select data-sk="purpose"><option value="">None</option>${plOpts.purposes.map(p => `<option${p.name === st.purpose ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>
         </div>
         <div class="pl-st-items">${st.items.map((u, k) => { const it = plOpts.items.find(x => x.id === u.item);
