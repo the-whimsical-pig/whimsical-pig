@@ -176,6 +176,12 @@
   .chips label, .tick { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92rem; }
   .chips label { padding: 6px 10px; border: 1px solid var(--rule); border-radius: 999px; }
   .chips input, .tick input { accent-color: var(--pink); }
+  .nopick { padding: 16px 18px; margin: 4px 0 16px; }
+  .nopick-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .nopick-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 10px; }
+  .nopick-row label { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 700; }
+  .nopick-row label.grow { flex: 1 1 200px; }
+  .nopick-row input { padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; font-weight: 400; }
   .code-form { padding: 18px; margin-bottom: 14px; }
   .code-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 14px; margin: 10px 0; }
   .code-grid label { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 700; }
@@ -453,6 +459,7 @@
               <option value="feature">Feature banner (big, with a photo)</option>
               <option value="closed">Closed notice</option>
               <option value="event">We'll be at an event</option>
+              <option value="nopickup">No pickups (uses your No-pickup dates)</option>
             </optgroup>
             <optgroup label="Closed for a holiday">
               <option value="h_newyear">New Year's Day</option>
@@ -476,6 +483,13 @@
         </div>
       </div>
       <p class="hint" id="banners-msg" role="status"></p>
+      <div class="card nopick" id="nopick">
+        <div class="nopick-head"><div><h3 class="sub-h">No-pickup dates</h3>
+          <p class="hint">Days nobody can pick up an order. Start an Order won't let customers choose pickup for those dates, and the shop's pickup option shows a heads-up.</p></div>
+          <div class="tools"><button class="btn ghost sm" id="nopick-add" type="button">+ Add Dates</button><button class="btn sm" id="nopick-save" type="button">Save Dates</button></div></div>
+        <div id="nopick-list"></div>
+        <p class="hint" id="nopick-msg" role="status"></p>
+      </div>
       <div class="list" id="banners"></div>
       <input type="file" id="banner-photo-pick" accept="image/*" hidden>
       </div>
@@ -717,7 +731,7 @@
 
   // ---------- tabs ----------
   const loaders = { codes: () => loadCodes(), requests: () => loadRequests(), orders: () => loadOrders(), items: () => loadItems(),
-                    banners: () => loadBanners().then(loadThemes).then(() => { reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
+                    banners: () => loadBanners().then(loadThemes).then(() => { nopick = ((site && site.nopickup) || []).map(r => ({ ...r })); drawNopick(); reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-tab]").forEach(o => {
       o.setAttribute("aria-selected", o === b);
@@ -1353,7 +1367,7 @@
     return site;
   }
   const saveSite = body => send("/api/admin/site", "PUT", body).then(r => {
-    freshSite(); site.banners = r.banners; site.photos = r.photos; site.themes = r.themes; site.activeTheme = r.activeTheme; site.reviews = r.reviews; return r;
+    freshSite(); site.banners = r.banners; site.photos = r.photos; site.themes = r.themes; site.activeTheme = r.activeTheme; site.reviews = r.reviews; site.nopickup = r.nopickup; return r;
   });
 
   // ---------- banners ----------
@@ -1412,6 +1426,13 @@
       return { kind: "bar", style: "black", text: "Ordering a framed gift for Christmas? Please order by December 1 so it's ready in time.",
         button: "Start an Order", link: "order.html", pages: ["all"], start: `${y}-11-01`, end: `${y}-12-01` }; },
     closed: () => ({ kind: "bar", style: "alert", text: "We're closed this Friday. Back Monday at 9am!", pages: ["all"], end: isoDay(new Date(Date.now() + 7 * 86400000)) }),
+    nopickup: () => { const r = (site.nopickup || []).find(x => x.end >= ymd(new Date()));
+      if (!r) { $("banners-msg").textContent = "Add your No-pickup dates below first, then pick this again."; return null; }
+      const d = v => new Date(v + "T00:00:00"), s0 = d(r.start), e0 = d(r.end), back = addDays(e0, 1);
+      const fmt = x => x.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      const when = r.start === r.end ? fmt(s0) : s0.getMonth() === e0.getMonth() ? `${fmt(s0)}–${e0.getDate()}` : `${fmt(s0)} – ${fmt(e0)}`;
+      return { kind: "bar", style: "alert", text: `Heads up: no order pickups ${when}${r.note ? ` (${r.note})` : ""}. Pickups start again ${back.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.`,
+               pages: ["all"], start: ymd(addDays(s0, -21)), end: r.end }; },
     event: () => ({ kind: "feature", style: "pink", title: "Come See Us!", text: "We'll be at the Lewis County Ren Faire with all-new shirts.",
       button: "Shop Ren Faire Merch", link: "shop.html?c=lewis-county-ren-faire", pages: ["home", "shop"] }),
   };
@@ -1419,7 +1440,8 @@
     const make = PRESETS[e.target.value];
     e.target.value = "";
     if (!make) return;
-    banners.unshift({ id: "", on: true, button: "", link: "", start: "", end: "", photo: null, ...make() });
+    const made = make(); if (!made) return;
+    banners.unshift({ id: "", on: true, button: "", link: "", start: "", end: "", photo: null, ...made });
     drawBanners();
     $("banners-msg").textContent = "Fill it in, then press Save Banners.";
   };
@@ -1558,6 +1580,24 @@
       site.reviews = r.reviews; reviews = r.reviews.map(x => ({ ...x }));
       drawReviews(); $("reviews-msg").textContent = reviews.length ? "Saved. The home page shows them within a minute." : "Saved. No reviews, so the section is hidden.";
     } catch (err) { $("reviews-msg").textContent = err.message; }
+  };
+
+  // ---------- no-pickup dates ----------
+  let nopick = [];
+  function drawNopick() {
+    $("nopick-list").innerHTML = nopick.length ? nopick.map((r, i) => `<div class="nopick-row" data-i="${i}">
+        <label>From<input type="date" data-k="start" value="${esc(r.start)}"></label><label>Through<input type="date" data-k="end" value="${esc(r.end)}"></label>
+        <label class="grow">Reason (optional)<input data-k="note" maxlength="120" value="${esc(r.note)}" placeholder="e.g. inventory week"></label>
+        <button type="button" class="link-btn" data-del>Remove</button></div>`).join("") : '<p class="hint">None set. Customers can pick up any weekday.</p>';
+  }
+  $("nopick-add").onclick = () => { const y = new Date().getFullYear() + (new Date().getMonth() > 0 ? 1 : 0);
+    nopick.push({ start: `${y}-01-01`, end: `${y}-01-07`, note: "" }); drawNopick(); $("nopick-msg").textContent = "Check the dates, then press Save Dates."; };
+  $("nopick-list").addEventListener("input", e => { const row = e.target.closest("[data-i]"); if (!row || !e.target.dataset.k) return; nopick[+row.dataset.i][e.target.dataset.k] = e.target.value; $("nopick-msg").textContent = "Press Save Dates to keep your changes."; });
+  $("nopick-list").addEventListener("click", e => { if (!("del" in e.target.dataset)) return; nopick.splice(+e.target.closest("[data-i]").dataset.i, 1); drawNopick(); $("nopick-msg").textContent = "Press Save Dates to keep your changes."; });
+  $("nopick-save").onclick = async () => {
+    if (nopick.some(r => !r.start || (r.end && r.end < r.start))) { $("nopick-msg").textContent = "Each range needs a start date, and the end can't be before the start."; return; }
+    try { const r = await saveSite({ nopickup: nopick }); nopick = r.nopickup.map(x => ({ ...x })); drawNopick(); $("nopick-msg").textContent = "Saved. The order form and shop use these within a minute."; }
+    catch (err) { $("nopick-msg").textContent = err.message; }
   };
 
   // ---------- discount & referral codes ----------

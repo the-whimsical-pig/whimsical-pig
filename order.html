@@ -107,6 +107,7 @@
   }
   .field .req { color: var(--brass); }
   .field .help { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+  .field .warn { color: #ff9a9a; font-weight: 700; }
   .code-row { display: flex; gap: 8px; align-items: stretch; }
   .code-row input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: 0.08em; }
   #code-msg.ok { color: #8fd19e; font-weight: 700; }
@@ -472,6 +473,7 @@
           <fieldset class="field" data-req>
             <legend>Will this be picked up or shipped? <span class="req">*</span></legend>
             <div class="opts" data-name="c_fulfill"></div>
+            <p class="help" id="pickup-note" hidden></p>
             <p class="err">Please choose one.</p>
           </fieldset>
           <div class="field addr" data-req data-show-if='{"name":"c_fulfill","is":"Ship it to me"}'>
@@ -771,6 +773,21 @@
   fillOpts("c_contact", ["Call", "Text", "Email"]);
   fillOpts("c_for", ["Me", "Someone else"]);
   fillOpts("c_fulfill", ["I'll pick it up at the shop", "Ship it to me"]);
+  // Dates nobody can pick up (Admin → Banners → No-pickup dates)
+  let noPickup = [];
+  const niceDay = v => new Date(v + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  function rangeText(r) {
+    const a = new Date(r.start + "T00:00:00"), b = new Date(r.end + "T00:00:00"), md = d => d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    return r.start === r.end ? `on ${md(a)}` : a.getMonth() === b.getMonth() ? `${md(a)}–${b.getDate()}` : `${md(a)} – ${md(b)}`;
+  }
+  function useNoPickup(list) {
+    noPickup = Array.isArray(list) ? list : [];
+    const soon = noPickup.filter(r => r.start <= addDays(today(), 75)), note = document.getElementById("pickup-note");
+    note.hidden = !soon.length;
+    note.textContent = soon.length ? "Heads up: no pickups " + soon.map(r => rangeText(r) + (r.note ? ` (${r.note})` : "")).join(", ") + "." : "";
+  }
+  document.addEventListener("site-changes", e => useNoPickup(e.detail && e.detail.nopickup));
+  if (typeof SITE_CHANGES !== "undefined" && SITE_CHANGES) useNoPickup(SITE_CHANGES.nopickup);
   fillOpts("c_delivery", ["I'll drop them off at the shop", "I'll mail them", "No items to send"]);
   attachAddressLookup({ street: form.elements.c_addr_street, city: form.elements.c_addr_city,
                         state: form.elements.c_addr_state, zip: form.elements.c_addr_zip });
@@ -908,6 +925,8 @@
       case "c_date":
         if (v < today()) return "That date has already passed. Please pick a date coming up.";
         if (v > addDays(today(), 3 * 365)) return "Please check the year on that date.";
+        { const closed = valueOf("c_fulfill").startsWith("I'll pick") && noPickup.find(r => v >= r.start && v <= r.end);
+          if (closed) return `We aren't doing pickups ${rangeText(closed)}${closed.note ? ` (${closed.note})` : ""}. Please pick a date after ${niceDay(closed.end)}, or choose shipping.`; }
         return "";
     }
     if (input.type === "number" && input.closest("[data-composite]") === null) {
@@ -985,11 +1004,14 @@
   const dateInput = form.elements.c_date;
   dateInput.min = today();
   dateInput.max = addDays(today(), 3 * 365);
-  dateInput.addEventListener("change", () => {
-    const v = dateInput.value, n = noteFor(dateInput);
-    n.textContent = v && v >= today() && v < addDays(today(), 14)
-      ? "That's less than 2 weeks away. We'll do our best, and we'll call you if it's tight. For a rush, call 315-773-3758." : "";
-  });
+  function dateNote() {
+    const v = dateInput.value, n = noteFor(dateInput), closed = v && problemWith(dateInput);
+    n.textContent = closed && /pickups/.test(closed) ? closed
+      : v && v >= today() && v < addDays(today(), 14) ? "That's less than 2 weeks away. We'll do our best, and we'll call you if it's tight. For a rush, call 315-773-3758." : "";
+    n.classList.toggle("warn", !!(closed && /pickups/.test(closed)));
+  }
+  dateInput.addEventListener("change", dateNote);
+  form.addEventListener("change", e => { if (e.target.name === "c_fulfill") dateNote(); });
   form.elements.c_addr_state.addEventListener("blur", e => { e.target.value = e.target.value.trim().toUpperCase(); });
 
   form.addEventListener("input", e => {
