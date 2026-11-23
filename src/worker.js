@@ -125,6 +125,18 @@ const SCHEMA = [
      sort INTEGER NOT NULL DEFAULT 0,
      created_at TEXT NOT NULL DEFAULT (datetime('now'))
    )`,
+  // Discount and referral codes for custom orders (Admin → Codes)
+  `CREATE TABLE IF NOT EXISTS promo_codes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     code TEXT NOT NULL UNIQUE,
+     offer TEXT NOT NULL DEFAULT '',
+     who TEXT NOT NULL DEFAULT '',
+     notes TEXT NOT NULL DEFAULT '',
+     active INTEGER NOT NULL DEFAULT 1,
+     ends TEXT NOT NULL DEFAULT '',
+     max_uses INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   )`,
 ];
 // Changes to tables that may already exist from an earlier version
 const MIGRATIONS = [
@@ -139,6 +151,7 @@ const MIGRATIONS = [
   `ALTER TABLE requests ADD COLUMN convert_key TEXT NOT NULL DEFAULT ''`,
   `ALTER TABLE requests ADD COLUMN shopvox_order TEXT NOT NULL DEFAULT ''`,
   `ALTER TABLE requests ADD COLUMN answers TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE requests ADD COLUMN promo TEXT NOT NULL DEFAULT ''`,
 ];
 
 let schemaReady = false;
@@ -179,6 +192,7 @@ async function route(request, env, url, path, ctx) {
   if (path === "/api/pay" && m === "POST") return pay(request, env, ctx);
   if (path === "/api/site" && m === "GET") return publicSite(env);
   if (path === "/api/hit" && m === "POST") return countVisit(request, env);
+  if (path === "/api/code" && m === "GET") return publicCode(env, url.searchParams.get("c"));
   const pm = path.match(/^\/api\/photo\/(\d+)$/);
   if (pm && m === "GET") return servePhoto(env, +pm[1], url.searchParams.get("s") === "sm");
   if (path === "/api/checkout" && m === "POST") return checkout(request, env, url);
@@ -206,6 +220,11 @@ async function route(request, env, url, path, ctx) {
     if (im && im[2] && m === "POST") return uploadItemImage(request, env, im[1]);
     if (path === "/api/admin/orders" && m === "GET") return listOrders(env);
     if (path === "/api/admin/notify" && m === "POST") return notifyCustomer(request, env);
+    if (path === "/api/admin/codes" && m === "GET") return listCodes(env);
+    if (path === "/api/admin/codes" && m === "POST") return saveCode(request, env, 0);
+    const cm = path.match(/^\/api\/admin\/codes\/(\d+)$/);
+    if (cm && m === "PUT") return saveCode(request, env, +cm[1]);
+    if (cm && m === "DELETE") { await env.DB.prepare(`DELETE FROM promo_codes WHERE id = ?`).bind(+cm[1]).run(); return json({ ok: true }); }
     if (path === "/api/admin/site" && m === "GET") return adminSite(env);
     if (path === "/api/admin/site" && m === "PUT") return saveSite(request, env);
     if (path === "/api/admin/photos" && m === "POST") return addPhoto(request, env);
@@ -717,6 +736,47 @@ async function squareOk(env, method, path, payload) {
   return r.data;
 }
 
+// ---------------------------------------------------------------- discount & referral codes
+// The shop makes codes on the admin page (Codes tab). A customer types one on the order form,
+// or arrives by a code's link (?code=…). The code goes with the order and at the top of the
+// shopVOX lead, and Kat takes the discount off when she prices the job.
+const cleanCode = v => String(v || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 30);
+async function checkCode(env, raw) {
+  const code = cleanCode(raw);
+  if (!code) return { error: "Type a code first." };
+  const c = await env.DB.prepare(`SELECT * FROM promo_codes WHERE code = ?`).bind(code).first();
+  if (!c || !c.active) return { error: "That code isn't one we know. Check the spelling, or leave it blank." };
+  if (c.ends && c.ends < todayNY()) return { error: "Sorry, that code has ended." };
+  if (c.max_uses > 0) {
+    const used = await env.DB.prepare(`SELECT COUNT(*) AS n FROM requests WHERE promo = ?`).bind(code).first();
+    if (used.n >= c.max_uses) return { error: "Sorry, that code has been used up." };
+  }
+  return { ok: true, code: c.code, offer: c.offer, who: c.who };
+}
+async function publicCode(env, raw) {
+  const r = await checkCode(env, raw);
+  return json(r.ok ? { ok: true, code: r.code, offer: r.offer, who: r.who } : { error: r.error }, r.ok ? 200 : 404, { "Cache-Control": "no-store" });
+}
+async function listCodes(env) {
+  const { results: codes } = await env.DB.prepare(`SELECT * FROM promo_codes ORDER BY active DESC, created_at DESC`).all();
+  const { results: uses } = await env.DB.prepare(
+    `SELECT promo, id, ref, name, type, created_at FROM requests WHERE promo != '' AND promo NOT LIKE '% (not valid)' ORDER BY id DESC`).all();
+  return json({ today: todayNY(), codes: codes.map(c => { const mine = uses.filter(u => u.promo === c.code);
+    return { ...c, uses: mine.length, orders: mine.slice(0, 25).map(({ promo, ...o }) => o) }; }) }, 200, { "Cache-Control": "no-store" });
+}
+async function saveCode(request, env, id) {
+  const b = await readJson(request);
+  const code = cleanCode(b.code);
+  if (code.length < 3) return json({ error: "Make the code at least 3 letters or numbers." }, 400);
+  const ends = /^\d{4}-\d{2}-\d{2}$/.test(b.ends || "") ? b.ends : "";
+  const vals = [code, cleanText(b.offer, 80), cleanText(b.who, 80), cleanText(b.notes, 300), b.active === false ? 0 : 1, ends, Math.max(0, parseInt(b.max_uses, 10) || 0)];
+  const clash = await env.DB.prepare(`SELECT id FROM promo_codes WHERE code = ? AND id != ?`).bind(code, id).first();
+  if (clash) return json({ error: `There's already a code ${code}.` }, 409);
+  if (id) await env.DB.prepare(`UPDATE promo_codes SET code = ?, offer = ?, who = ?, notes = ?, active = ?, ends = ?, max_uses = ? WHERE id = ?`).bind(...vals, id).run();
+  else await env.DB.prepare(`INSERT INTO promo_codes (code, offer, who, notes, active, ends, max_uses) VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(...vals).run();
+  return listCodes(env);
+}
+
 // ---------------------------------------------------------------- order requests
 
 async function saveOrderRequest(request, env, ctx) {
@@ -741,11 +801,14 @@ async function saveOrderRequest(request, env, ctx) {
     }
   }
 
+  // A discount or referral code: kept as the code when it's good, else as typed with "(not valid)"
+  const typed = cleanCode(field("promo", 40));
+  const promo = !typed ? "" : (await checkCode(env, typed)).ok ? typed : `${typed} (not valid)`;
   const row = await env.DB.prepare(
-    `INSERT INTO requests (ref, type, name, email, phone, needed_by, fulfill, summary, unit)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+    `INSERT INTO requests (ref, type, name, email, phone, needed_by, fulfill, summary, unit, promo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   ).bind(ref, field("type", 80), field("name"), field("email"), field("phone", 40),
-         field("needed_by", 40), field("fulfill", 80), summary, field("unit", 120)).first();
+         field("needed_by", 40), field("fulfill", 80), summary, field("unit", 120), promo).first();
   for (const f of files) await saveRequestFile(env, row.id, f);
   // Copy it into shopVOX as a sales lead (after the customer gets their reply)
   const origin = new URL(request.url).origin;
@@ -1608,7 +1671,11 @@ async function pushRequestToShopvox(env, id, origin) {
     r.convert_key = randomKey();
     await env.DB.prepare(`UPDATE requests SET convert_key = ? WHERE id = ?`).bind(r.convert_key, id).run();
   }
+  const code = r.promo && !/not valid/.test(r.promo) ? await env.DB.prepare(`SELECT * FROM promo_codes WHERE code = ?`).bind(r.promo).first() : null;
+  const codeLine = !r.promo ? "" : code ? `DISCOUNT / REFERRAL CODE: ${code.code}${code.offer ? ` (${code.offer})` : ""}${code.who ? `, referred by ${code.who}` : ""}`
+    : `CODE TYPED BUT NOT VALID: ${r.promo.replace(/ \(not valid\)$/, "")}`;
   const details = [
+    ...(codeLine ? [codeLine, ""] : []),
     `PHOTOS AND EVERY ANSWER ON ONE PAGE: ${base}/api/order-view/${r.id}/${r.convert_key}`, "",
     `Website order ${r.ref}`,
     r.unit && `Unit: ${r.unit}`,
@@ -1624,7 +1691,7 @@ async function pushRequestToShopvox(env, id, origin) {
   // same email first, then same name and phone, then a customer with the same name
   const who = await findShopvoxCustomer(env, r);
   const lead = {
-    title: `${r.ref} · ${r.type || "Website order"} · ${r.name || "Customer"}`.slice(0, 200),
+    title: `${r.ref} · ${r.type || "Website order"} · ${r.name || "Customer"}${code ? ` · Code ${code.code}` : ""}`.slice(0, 200),
     details,
     workflowState: "new",
     nextContactDate: todayNY(),
@@ -2041,13 +2108,14 @@ async function deleteTestOrders(env) {
 // Customers' photos aren't in it (they'd make it huge); they stay in Order Backup.
 async function backup(env) {
   const all = sql => env.DB.prepare(sql).all().then(r => r.results);
-  const [requests, files, orders, kv] = await Promise.all([
-    all(`SELECT id, ref, type, name, email, phone, needed_by, fulfill, unit, summary, status, note, shopvox_id, created_at FROM requests ORDER BY id`),
+  const [requests, files, orders, kv, codes] = await Promise.all([
+    all(`SELECT id, ref, type, name, email, phone, needed_by, fulfill, unit, summary, status, note, shopvox_id, promo, created_at FROM requests ORDER BY id`),
     all(`SELECT id, request_id, name, mime FROM request_files ORDER BY id`),
     all(`SELECT * FROM shop_orders ORDER BY id`),
     all(`SELECT key, value FROM kv WHERE key IN ('site', 'preorders', 'partners')`),
+    all(`SELECT * FROM promo_codes ORDER BY id`),
   ]);
-  const body = JSON.stringify({ made: new Date().toISOString(), requests, request_files: files, shop_orders: orders,
+  const body = JSON.stringify({ made: new Date().toISOString(), requests, request_files: files, shop_orders: orders, promo_codes: codes,
     settings: Object.fromEntries(kv.map(r => [r.key, JSON.parse(r.value)])) }, null, 2);
   return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "no-store",
     "Content-Disposition": `attachment; filename="whimsical-pig-backup-${todayNY()}.json"` } });

@@ -285,3 +285,12 @@ Items are plain, common-size blanks, each with sizes to pick from; customers can
 `planner-defaults.js` holds the starting lists, used until the shop saves its own. PDFs are read in the browser with PDF.js (`vendor/pdfjs/`, Apache-2.0), loaded only when a PDF is picked.
 
 The plan stays in the customer's browser. **Use This Plan in My Order** opens Start an Order (Military Framing → Shadow Box, or Framed Guidon or Flag for a frame) with the plan's picture added to their photos, the matching items ticked, and a "Shadow box plan" line (type, size, colors, mat, every item and size, the plate wording and their notes).
+
+## Discount & referral codes (Admin → Codes)
+Codes for custom orders (Start an Order → shopVOX), not the online shop. Each code has what the customer gets (free text, like "10% off"), who it's for (an affiliate or partner, optional), an end date and a use limit (both optional), private notes, and an on/off switch.
+
+- Customers type a code in **Discount or referral code** on the contact step and see right away whether it's good. A code link (`/order.html?code=WYATT10`, or `?code=` on any page) fills it in for them, remembered for 60 days.
+- The code goes in the order summary, at the top of the shopVOX lead and in the lead's title ("· Code WYATT10"), so Kat takes the discount off when she prices the job. A code that isn't valid is still passed along, marked "not valid".
+- Each code shows how many orders used it and which ones, a link to copy, and a printable **QR Sign** (`sign.html?code=…`).
+- Codes are stored in the `promo_codes` table; the code used is saved on each order (`requests.promo`) and in the backup.
+

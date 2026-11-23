@@ -383,6 +383,14 @@ function buildFooter() {
     </div>`;
 }
 
+// A discount or referral link (any page, ?code=…): remember the code for 60 days,
+// and the order form fills it in.
+(function () {
+  const c = new URLSearchParams(location.search).get("code");
+  if (!c) return;
+  try { localStorage.setItem("wp-code", JSON.stringify({ code: c.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 30), at: Date.now() })); } catch (e) {}
+})();
+
 // Count this page view for the admin page's Website visits (no cookies, nothing
 // about the visitor: just the page and where they came from)
 function countVisit(page) {

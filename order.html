@@ -107,6 +107,10 @@
   }
   .field .req { color: var(--brass); }
   .field .help { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+  .code-row { display: flex; gap: 8px; align-items: stretch; }
+  .code-row input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: 0.08em; }
+  #code-msg.ok { color: #8fd19e; font-weight: 700; }
+  #code-msg.bad { color: #ff9a9a; }
   fieldset.field { border: 0; }
   .field input[type="text"], .field input[type="email"], .field input[type="tel"],
   .field input[type="number"], .field input[type="date"], .field select, .field textarea {
@@ -496,6 +500,12 @@
             <label for="c_notes">Anything else?</label>
             <textarea id="c_notes" name="c_notes" placeholder="Budget, questions, special requests…"></textarea>
           </div>
+          <div class="field code-field">
+            <label for="c_code">Discount or referral code</label>
+            <div class="code-row"><input type="text" id="c_code" name="c_code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="30" placeholder="Optional">
+              <button type="button" class="btn ghost sm" id="code-check">Apply</button></div>
+            <p class="help" id="code-msg" role="status"></p>
+          </div>
         </div>
       </section>
 
@@ -864,6 +874,7 @@
       ["Shipping address", valueOf("c_fulfill") === "Ship it to me" ? valueOf("c_address") : ""],
       ["Getting items to us", isShown(document.getElementById("delivery-field")) ? valueOf("c_delivery") : ""],
       ["Notes", valueOf("c_notes")],
+      ["Discount / referral code", codeText()],
       ["Photos", files.length ? files.map(f => f.name).join(", ") : ""],
     ]]);
     return sections.map(([h, rows]) => [h, rows.filter(([, v]) => v)]);
@@ -1065,6 +1076,28 @@
     const ymd = String(d.getFullYear()).slice(2) + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
     return "WP-" + ymd + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
   }
+  // ---- discount or referral code: checked with the shop as it's typed (or filled in from a code link)
+  let codeInfo = null;
+  const codeBox = form.elements.c_code, codeMsg = document.getElementById("code-msg");
+  function codeText() { const c = valueOf("c_code").toUpperCase(); return !c ? "" : codeInfo && codeInfo.code === c ? `${c}${codeInfo.offer ? ` (${codeInfo.offer})` : ""}` : `${c} (not checked)`; }
+  async function checkCode() {
+    const c = codeBox.value.trim().toUpperCase(); codeInfo = null;
+    codeMsg.className = "help"; codeMsg.textContent = "";
+    if (!c) return;
+    codeMsg.textContent = "Checking…";
+    try {
+      const r = await fetch("/api/code?c=" + encodeURIComponent(c)), d = await r.json();
+      if (codeBox.value.trim().toUpperCase() !== c) return;
+      if (d.ok) { codeInfo = d; codeMsg.className = "help ok"; codeMsg.textContent = `✓ ${d.offer || "Code added"}${d.who ? `, thanks to ${d.who}` : ""}`.replace(/\.+$/, "") + ". We'll take it off when we price your order."; }
+      else { codeMsg.className = "help bad"; codeMsg.textContent = d.error || "That code didn't work."; }
+    } catch (e) { codeMsg.textContent = "We couldn't check the code right now, but we'll still see it with your order."; }
+  }
+  document.getElementById("code-check").onclick = checkCode;
+  codeBox.addEventListener("change", checkCode);
+  codeBox.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); checkCode(); } });
+  try { const saved = JSON.parse(localStorage.getItem("wp-code") || "null");
+    if (saved && saved.code && Date.now() - saved.at < 60 * 864e5 && !codeBox.value) { codeBox.value = saved.code; checkCode(); } } catch (e) {}
+
   function plainText(ref) {
     return ["Order reference: " + ref, ""].concat(
       summary().flatMap(([h, rows]) => ["== " + h + " ==", ...rows.map(([k, v]) => k + ": " + v), ""])
@@ -1114,6 +1147,7 @@
         fd.append("needed_by", valueOf("c_date"));
         fd.append("fulfill", valueOf("c_fulfill"));
         fd.append("unit", valueOf("q_unit"));
+        fd.append("promo", valueOf("c_code").toUpperCase());
         fd.append("summary", plainText(ref));
         fd.append("website", form.elements.website ? form.elements.website.value : "");
         for (const f of await Promise.all(files.map(f => shrinkPhoto(f)))) fd.append("photos", f, f.name);
@@ -1326,6 +1360,7 @@
   }
 
   const draft = restoreDraft();
+  setTimeout(() => { if (form.elements.c_code.value && !codeInfo) checkCode(); }, 0);   // a code saved with the draft
   // Links like order.html?type=shadow-box open with that order type already picked
   const legacy = { "shadow-box": "military", "flag-case": "military" };
   const asked = new URLSearchParams(location.search).get("type") || "";
