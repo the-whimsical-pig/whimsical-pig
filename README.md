@@ -294,3 +294,6 @@ Codes for custom orders (Start an Order → shopVOX), not the online shop. Each 
 - Each code shows how many orders used it and which ones, a link to copy, and a printable **QR Sign** (`sign.html?code=…`).
 - Codes are stored in the `promo_codes` table; the code used is saved on each order (`requests.promo`) and in the backup.
 
+## No-pickup dates (Admin → Banners & Reviews → Banners)
+Date ranges when nobody can pick up an order (for example the first week of January). On Start an Order, choosing pickup with a "needed by" date in a range shows a message right away and won't let the customer continue (shipping is fine). A heads-up shows under the pickup choice when a range is within about 75 days, and by the shop's pickup option within 30 days. The **No pickups** ready-made banner writes itself from the next range. Saved with the site settings as `nopickup` and sent in `/api/site`.
+

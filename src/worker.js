@@ -1407,7 +1407,7 @@ const STARTING_REVIEWS = [
 async function siteData(env) {
   const row = await kvGet(env, "site");
   const v = (row && row.value) || {};
-  return { banners: v.banners || [], themes: v.themes || [], reviews: v.reviews || STARTING_REVIEWS, planner: v.planner || null,
+  return { banners: v.banners || [], themes: v.themes || [], reviews: v.reviews || STARTING_REVIEWS, planner: v.planner || null, nopickup: v.nopickup || [],
            photos: { hidden: [], captions: {}, replace: {}, groups: {}, ...(v.photos || {}) } };
 }
 
@@ -1435,6 +1435,7 @@ async function publicSite(env) {
     replace: { ...site.photos.replace, ...(theme ? theme.photos : {}) },
     theme: theme ? theme.name : "",
     reviews: site.reviews,
+    nopickup: site.nopickup.filter(r => r.end >= today),
     ...(site.planner ? { planner: site.planner } : {}),
     ...(env.PREVIEW ? { preview: true } : {}),
     added: results.map(r => ({ id: r.id, group: r.grp, caption: r.caption })),
@@ -1504,6 +1505,13 @@ async function saveSite(request, env) {
   if (b.reviews !== undefined) {
     if (!Array.isArray(b.reviews) || b.reviews.length > 12) return json({ error: "Up to 12 reviews." }, 400);
     site.reviews = b.reviews.map(r => ({ text: cleanText(r && r.text, 600), name: cleanText(r && r.name, 60) })).filter(r => r.text);
+  }
+  if (b.nopickup !== undefined) {
+    // Dates when nobody can pick up an order (the order form and shop warn about them)
+    if (!Array.isArray(b.nopickup) || b.nopickup.length > 12) return json({ error: "Up to 12 date ranges." }, 400);
+    const day = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : "";
+    site.nopickup = b.nopickup.map(r => ({ start: day(r && r.start), end: day(r && r.end) || day(r && r.start), note: cleanText(r && r.note, 120) }))
+      .filter(r => r.start && r.end >= r.start).sort((a, c) => a.start.localeCompare(c.start));
   }
   if (b.planner !== undefined) {
     const r = cleanPlanner(b.planner);
