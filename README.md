@@ -261,3 +261,11 @@ A second copy of the site, **whimsical-pig-preview**, built from the `claude/kin
 4. The preview lives at `https://whimsical-pig-preview.<your-subdomain>.workers.dev`.
 
 **How changes flow:** new work is pushed to `claude/kind-turing-6oczei` first → it appears on the preview site → once it looks right, it's merged into `main` → the live site updates.
+## Discount & referral codes (Admin → Codes)
+Codes for custom orders (Start an Order → shopVOX), not the online shop. Each code has what the customer gets (free text, like "10% off"), who it's for (an affiliate or partner, optional), an end date and a use limit (both optional), private notes, and an on/off switch.
+
+- Customers type a code in **Discount or referral code** on the contact step and see right away whether it's good. A code link (`/order.html?code=WYATT10`, or `?code=` on any page) fills it in for them, remembered for 60 days.
+- The code goes in the order summary, at the top of the shopVOX lead and in the lead's title ("· Code WYATT10"), so Kat takes the discount off when she prices the job. A code that isn't valid is still passed along, marked "not valid".
+- Each code shows how many orders used it and which ones, a link to copy, and a printable **QR Sign** (`sign.html?code=…`).
+- Codes are stored in the `promo_codes` table; the code used is saved on each order (`requests.promo`) and in the backup.
+

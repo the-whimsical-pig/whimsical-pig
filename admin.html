@@ -176,6 +176,22 @@
   .chips label, .tick { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92rem; }
   .chips label { padding: 6px 10px; border: 1px solid var(--rule); border-radius: 999px; }
   .chips input, .tick input { accent-color: var(--pink); }
+  .code-form { padding: 18px; margin-bottom: 14px; }
+  .code-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 14px; margin: 10px 0; }
+  .code-grid label { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 700; }
+  .code-grid label.wide { grid-column: 1 / -1; }
+  .code-grid label.tick { display: flex; align-items: center; gap: 8px; }
+  .code-grid input:not([type=checkbox]), .code-link input { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: var(--cream); font: inherit; font-weight: 400; }
+  .code-grid input[name=code] { text-transform: uppercase; letter-spacing: 0.08em; }
+  .code-card { padding: 16px; display: grid; gap: 8px; }
+  .code-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .code-name { font: 700 1.2rem var(--sans); letter-spacing: 0.08em; }
+  .code-offer { color: var(--muted); }
+  .pill { padding: 2px 10px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; }
+  .pill.on { background: #2f5c3a; color: #c9f2d3; } .pill.off { background: #4a3a3d; color: #d9c3c8; }
+  .code-link { display: flex; gap: 8px; flex-wrap: wrap; } .code-link input { flex: 1 1 220px; min-width: 0; font-size: 0.85rem; }
+  .code-acts { display: flex; gap: 18px; }
+  .code-orders { margin: 6px 0 0 18px; font-size: 0.88rem; }
   .form-msg { min-height: 1.2em; color: #ff8f8a; font-size: 0.9rem; }
   .dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
 
@@ -292,10 +308,39 @@
       <button role="tab" aria-selected="false" data-tab="photos">Site Photos</button>
       <button role="tab" aria-selected="false" data-tab="social">Facebook Posts</button>
       <button role="tab" aria-selected="false" data-tab="requests">Order Backup <span class="warn" id="n-requests"></span></button>
+      <button role="tab" aria-selected="false" data-tab="codes">Codes</button>
       <button role="tab" aria-selected="false" data-tab="setup">Setup <span class="warn" id="n-setup"></span></button>
     </div>
 
     <!-- Backup copy of every Start an Order request (they're worked in shopVOX) -->
+    <!-- Discount & referral codes for custom orders -->
+    <section id="tab-codes" hidden>
+      <div class="toolbar">
+        <div>
+          <h2>Discount &amp; Referral Codes</h2>
+          <p class="hint">Codes customers can enter on Start an Order. The code shows at the top of the shopVOX lead (and in its title) so you can take the discount off when you price the job.
+            Give an affiliate or partner their own code and link: you'll see every order that used it.</p>
+        </div>
+        <div class="tools"><button class="btn sm" id="code-new" type="button">+ New Code</button></div>
+      </div>
+      <form class="card code-form" id="code-form" hidden>
+        <h3 class="sub-h" id="code-form-title">New code</h3>
+        <div class="code-grid">
+          <label>Code<input name="code" maxlength="30" required placeholder="e.g. WYATT10" autocapitalize="characters"></label>
+          <label>What they get<input name="offer" maxlength="80" placeholder="e.g. 10% off, $20 off, free plate"></label>
+          <label>Who it's for (affiliate or partner)<input name="who" maxlength="80" placeholder="Optional, e.g. Wyatt W."></label>
+          <label>Ends on<input name="ends" type="date"></label>
+          <label>Use limit<input name="max_uses" type="number" min="0" step="1" placeholder="No limit"></label>
+          <label class="wide">Notes (only you see these)<input name="notes" maxlength="300" placeholder="e.g. 5% back to Wyatt on each order"></label>
+          <label class="tick"><input type="checkbox" name="active" checked> Turned on</label>
+        </div>
+        <div class="dlg-btns"><button class="btn ghost sm" type="button" id="code-cancel">Cancel</button><button class="btn sm" type="submit">Save Code</button></div>
+        <p class="hint" id="code-form-msg" role="status"></p>
+      </form>
+      <p class="hint" id="codes-msg" role="status"></p>
+      <div class="list" id="codes"></div>
+    </section>
+
     <section id="tab-requests" hidden>
       <div class="toolbar">
         <div>
@@ -671,7 +716,7 @@
   $("logout").onclick = async () => { await send("/api/admin/logout", "POST", {}); showLogin(); };
 
   // ---------- tabs ----------
-  const loaders = { requests: () => loadRequests(), orders: () => loadOrders(), items: () => loadItems(),
+  const loaders = { codes: () => loadCodes(), requests: () => loadRequests(), orders: () => loadOrders(), items: () => loadItems(),
                     banners: () => loadBanners().then(loadThemes).then(() => { reviews = ((site && site.reviews) || []).map(r => ({ ...r })); drawReviews(); }), photos: () => loadPhotos(), social: () => loadSocial(), setup: () => loadSetup() };
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-tab]").forEach(o => {
@@ -1514,6 +1559,58 @@
       drawReviews(); $("reviews-msg").textContent = reviews.length ? "Saved. The home page shows them within a minute." : "Saved. No reviews, so the section is hidden.";
     } catch (err) { $("reviews-msg").textContent = err.message; }
   };
+
+  // ---------- discount & referral codes ----------
+  let codes = [], codesToday = "", codeEditing = 0;
+  const codeLink = c => `${location.origin}/order.html?code=${encodeURIComponent(c)}`;
+  async function loadCodes() {
+    try { const d = await api("/api/admin/codes"); codes = d.codes; codesToday = d.today; drawCodes(); }
+    catch (err) { $("codes").innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+  }
+  function codeState(c) {
+    if (!c.active) return ["Off", "off"];
+    if (c.ends && c.ends < codesToday) return ["Ended", "off"];
+    if (c.max_uses && c.uses >= c.max_uses) return ["Used up", "off"];
+    return ["On", "on"];
+  }
+  function drawCodes() {
+    $("codes").innerHTML = codes.length ? codes.map(c => { const [st, cls] = codeState(c);
+      return `<div class="card code-card" data-id="${c.id}">
+        <div class="code-top"><span class="code-name">${esc(c.code)}</span><span class="pill ${cls}">${st}</span>
+          <span class="code-offer">${esc(c.offer || "No discount set")}${c.who ? ` · for <b>${esc(c.who)}</b>` : ""}</span></div>
+        <p class="hint">${c.uses} order${c.uses === 1 ? "" : "s"}${c.max_uses ? ` of ${c.max_uses}` : ""}${c.ends ? ` · ends ${esc(c.ends)}` : ""}${c.notes ? ` · ${esc(c.notes)}` : ""}</p>
+        <div class="code-link"><input readonly value="${esc(codeLink(c.code))}" aria-label="Link for ${esc(c.code)}"><button type="button" class="btn ghost sm" data-c="copy">Copy Link</button>
+          <a class="btn ghost sm" href="sign.html?code=${encodeURIComponent(c.code)}&offer=${encodeURIComponent(c.offer)}&who=${encodeURIComponent(c.who)}" target="_blank" rel="noopener">QR Sign</a></div>
+        ${c.orders.length ? `<details><summary>Orders that used it</summary><ul class="code-orders">${c.orders.map(o => `<li><b>${esc(o.ref)}</b> ${esc(o.name)} · ${esc(o.type)} · ${esc(String(o.created_at).slice(0, 10))}</li>`).join("")}</ul></details>` : ""}
+        <div class="code-acts"><button type="button" class="link-btn" data-c="edit">Edit</button><button type="button" class="link-btn" data-c="toggle">${c.active ? "Turn off" : "Turn on"}</button><button type="button" class="link-btn" data-c="del">Delete</button></div>
+      </div>`; }).join("") : '<div class="empty">No codes yet. Press “+ New Code”.</div>';
+  }
+  function openCodeForm(c) {
+    const f = $("code-form"); codeEditing = c ? c.id : 0; f.hidden = false; f.reset();
+    $("code-form-title").textContent = c ? `Edit ${c.code}` : "New code"; $("code-form-msg").textContent = "";
+    if (c) for (const k of ["code", "offer", "who", "ends", "notes"]) f.elements[k].value = c[k] || "";
+    f.elements.max_uses.value = c && c.max_uses ? c.max_uses : ""; f.elements.active.checked = c ? !!c.active : true;
+    f.scrollIntoView({ block: "center" }); f.elements.code.focus();
+  }
+  $("code-new").onclick = () => openCodeForm(null);
+  $("code-cancel").onclick = () => { $("code-form").hidden = true; };
+  $("code-form").onsubmit = async e => {
+    e.preventDefault(); const f = e.target;
+    const body = { code: f.elements.code.value, offer: f.elements.offer.value, who: f.elements.who.value, ends: f.elements.ends.value,
+      max_uses: f.elements.max_uses.value, notes: f.elements.notes.value, active: f.elements.active.checked };
+    try { const d = await send(codeEditing ? `/api/admin/codes/${codeEditing}` : "/api/admin/codes", codeEditing ? "PUT" : "POST", body);
+      codes = d.codes; codesToday = d.today; drawCodes(); f.hidden = true; $("codes-msg").textContent = "Saved. Customers can use it right away."; }
+    catch (err) { $("code-form-msg").textContent = err.message; }
+  };
+  $("codes").addEventListener("click", async e => {
+    const b = e.target.closest("[data-c]"); if (!b) return;
+    const c = codes.find(x => x.id === +b.closest("[data-id]").dataset.id);
+    if (b.dataset.c === "copy") { try { await navigator.clipboard.writeText(codeLink(c.code)); b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy Link"; }, 1500); } catch (err) { b.previousElementSibling.select(); } }
+    if (b.dataset.c === "edit") openCodeForm(c);
+    if (b.dataset.c === "toggle") { try { const d = await send(`/api/admin/codes/${c.id}`, "PUT", { ...c, active: !c.active }); codes = d.codes; drawCodes(); } catch (err) { $("codes-msg").textContent = err.message; } }
+    if (b.dataset.c === "del") { if (!confirm(`Delete the code ${c.code}? Orders that used it keep it.`)) return;
+      try { await api(`/api/admin/codes/${c.id}`, { method: "DELETE" }); await loadCodes(); } catch (err) { $("codes-msg").textContent = err.message; } }
+  });
 
   // ---------- website visits ----------
   const PAGE_LABELS = { "/": "Home", "/story": "Our Story", "/work": "Our Work", "/design": "Design & Merch", "/shop": "Shop", "/order": "Start an Order",

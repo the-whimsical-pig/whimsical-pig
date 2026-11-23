@@ -46,8 +46,28 @@
 <script src="vendor/qrcode.js"></script>
 <script>
   const params = new URLSearchParams(location.search);
-  // sign.html?review=1: "Leave us a review" sign for the counter or pickup bags
-  if (params.has("review")) {
+  // sign.html?code=…: a discount or referral code sign (Admin → Codes → QR Sign)
+  if (params.has("code")) {
+    const code = (params.get("code") || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 30);
+    const offer = (params.get("offer") || "").slice(0, 80), who = (params.get("who") || "").slice(0, 80);
+    const link = location.origin + "/order.html?code=" + encodeURIComponent(code);
+    document.getElementById("open-shop").textContent = "Open the Order Form"; document.getElementById("open-shop").href = link;
+    const qr = qrcode(0, "M"); qr.addData(link); qr.make();
+    const box1 = document.getElementById("sign");
+    box1.innerHTML = `<div class="sheet">
+      <img class="logo" src="images/logo-full.webp?v=2" alt="The Whimsical Pig">
+      <div class="kicker" id="ck"></div>
+      <h1 id="coffer"></h1>
+      <p class="sub">Military shadow boxes, framed guidons, custom framing, embroidery and more. Made in Watertown.</p>
+      <div class="qr">${qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true })}</div>
+      <div class="scan">Scan to start your order</div>
+      <div class="url" id="ccode"></div>
+      <div class="foot">The Whimsical Pig · 50 Public Square, Suite E1 · Watertown, NY · 315-773-3758</div></div>`;
+    box1.querySelector("#ck").textContent = who ? `From ${who}` : "Special offer";
+    box1.querySelector("#coffer").textContent = offer || "Use our code";
+    box1.querySelector("#ccode").textContent = `Or use code ${code} on our order form`;
+    document.title = code + " Sign — The Whimsical Pig";
+  } else if (params.has("review")) {
     const r = (window.SETTINGS && SETTINGS.reviewsUrl) || "";
     const link = r && (r.startsWith("/") ? location.origin + r : r);
     const box0 = document.getElementById("sign");
